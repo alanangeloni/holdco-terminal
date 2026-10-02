@@ -45,6 +45,7 @@ export function OriginationDesk() {
       <PageHead
         kicker="Origination"
         title="Ideas"
+        job="Keep the ideas that are not companies yet."
         lede="A shelf for niche scouting and one-pagers. Research until you say go. Greenlit is permission to build, not an operating company. Passed and parked ideas stay here."
         actions={<Button size="sm" onClick={() => { setEditing(null); setOpen(true) }}>New idea</Button>}
       />

@@ -59,6 +59,8 @@ const ADDITIVE = [
   "channelDirect",
   "channelReferral",
   "channelSocial",
+  "depreciation",
+  "maintenanceCapex",
 ] as const satisfies readonly (keyof MonthlyStatement)[]
 
 export function emptySocial(): SocialPoint {

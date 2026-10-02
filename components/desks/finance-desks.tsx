@@ -32,6 +32,7 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
   const book = usePortfolio()
   const palette = usePalette()
   const remove = usePortfolio((state) => state.deleteStatement)
+  const draftMonth = usePortfolio((state) => state.draftMonth)
   const { span, setSpan } = useSpan()
   const [open, setOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -139,11 +140,12 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
   return (
     <div>
       {embedded ? null : (
-        <PageHead kicker="Books" title="Statements" lede="Closed months are the source of truth. 1M is daily and quarter is weekly; both add back to the month. Budget sits beside actuals." actions={<SpanToggle value={span} onChange={setSpan} />} />
+        <PageHead kicker="Books" title="Statements" job="Read the closed month against the budget." lede="Closed months are the source of truth. 1M is daily and quarter is weekly; both add back to the month. Budget sits beside actuals." actions={<SpanToggle value={span} onChange={setSpan} />} />
       )}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {company ? (
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => draftMonth(company.id)}>Draft next month</Button>
             <Button size="sm" onClick={() => { setEditId(null); setOpen(true) }}>Add month</Button>
           </div>
         ) : null}
@@ -231,7 +233,7 @@ export function RevenueDesk({ companyId, embedded = false }: { companyId?: strin
   }))
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Books" title="Revenue" lede="Product mix, customer concentration, and the open pipeline." />}
+      {embedded ? null : <PageHead kicker="Books" title="Revenue" job="See the product mix and whether buyers came back." lede="Product mix, customer concentration, and the open pipeline." />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         <div className="flex flex-wrap justify-end gap-2">
           <SpanToggle value={span} onChange={setSpan} />
@@ -249,6 +251,22 @@ export function RevenueDesk({ companyId, embedded = false }: { companyId?: strin
             <TermHBar data={pipeline} color={palette[0]} />
           </Panel>
         </div>
+        {lines.length ? (
+          <Panel title="Retention by product">
+            <div className="grid gap-2">
+              {lines.map((line) => (
+                <div key={line.id} className="text-xs">
+                  <div className="flex justify-between gap-2">
+                    <span>{line.name}</span>
+                    <span className="font-mono text-muted-foreground">{line.retention === undefined ? "—" : `${Math.round(line.retention * 100)}%`}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 bg-border"><div className="h-full bg-amber" style={{ width: `${Math.min(100, (line.retention ?? 0) * 100)}%` }} /></div>
+                  {line.bet ? <p className="mt-1 text-muted-foreground">{line.bet}</p> : null}
+                </div>
+              ))}
+            </div>
+          </Panel>
+        ) : null}
       </div>
       {companyId && productOpen ? <ProductDialog open companyId={companyId} onOpenChange={setProductOpen} /> : null}
       {dealOpen ? <DealDialog open companyId={companyId} onOpenChange={setDealOpen} /> : null}
@@ -274,7 +292,7 @@ export function ReceivablesDesk({ companyId, embedded = false }: { companyId?: s
   ]
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Books" title="Customers" lede="Aging is measured against the as-of month end. Paid and draft invoices stay off the chart." actions={<><Button size="sm" variant="outline" onClick={() => setCustomerOpen(true)}>Add customer</Button><Button size="sm" onClick={() => setInvoiceOpen(true)}>Add invoice</Button></>} />}
+      {embedded ? null : <PageHead kicker="Books" title="Customers" job="See who owes the companies." lede="Aging is measured against the as-of month end. Paid and draft invoices stay off the chart." actions={<><Button size="sm" variant="outline" onClick={() => setCustomerOpen(true)}>Add customer</Button><Button size="sm" onClick={() => setInvoiceOpen(true)}>Add invoice</Button></>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? (
           <div className="flex justify-end gap-2">
@@ -343,7 +361,7 @@ export function PayablesDesk({ companyId, embedded = false }: { companyId?: stri
   }, [bills])
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Books" title="Vendors" lede="Bills and the categories they land in." actions={<><Button size="sm" variant="outline" onClick={() => setVendorOpen(true)}>Add vendor</Button><Button size="sm" onClick={() => setBillOpen(true)}>Add bill</Button></>} />}
+      {embedded ? null : <PageHead kicker="Books" title="Vendors" job="See who the companies owe." lede="Bills and the categories they land in." actions={<><Button size="sm" variant="outline" onClick={() => setVendorOpen(true)}>Add vendor</Button><Button size="sm" onClick={() => setBillOpen(true)}>Add bill</Button></>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? <div className="flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => setVendorOpen(true)}>Add vendor</Button><Button size="sm" onClick={() => setBillOpen(true)}>Add bill</Button></div> : null}
         <div className="grid gap-2 xl:grid-cols-2">
@@ -420,7 +438,7 @@ export function TreasuryDesk({ companyId, embedded = false }: { companyId?: stri
   const name = (id: string) => book.companies.find((company) => company.id === id)?.name ?? "—"
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Books" title="Treasury" lede="Bank cash, debt, intercompany loans, and runway. Consolidation is uneliminated." actions={<Button size="sm" onClick={() => setOpen(true)}>Add account</Button>} />}
+      {embedded ? null : <PageHead kicker="Books" title="Treasury" job="See cash, debt, and loans beside the eliminated view." lede="Bank cash, debt, intercompany loans, and runway. Consolidation is uneliminated. Owner's math shows the eliminated figures." actions={<Button size="sm" onClick={() => setOpen(true)}>Add account</Button>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? <div className="flex justify-end"><Button size="sm" onClick={() => setOpen(true)}>Add account</Button></div> : null}
         <div className="grid gap-2 xl:grid-cols-2">

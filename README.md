@@ -25,5 +25,6 @@ npm test
 - Move the as-of month. Statement figures, aging, runway, and scorecards follow it.
 - Switch a chart between 1M (daily), quarter (weekly), and 3M, 6M, 12M, or all (monthly). Daily and weekly points are split from the closed month and add back to it.
 - Read alerts, the holdings rollup (full or ownership-weighted), and a printable board pack.
+- Read owner's math, customer's math, and my week beside the desks that were already there.
 
-Consolidation adds subsidiary books without eliminating intercompany loans. Those loans are labeled uneliminated.
+Consolidation adds subsidiary books without eliminating intercompany loans. Those loans stay labeled uneliminated on the rollup. Owner's math also shows them taken out of combined cash and debt.

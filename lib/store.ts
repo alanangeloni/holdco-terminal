@@ -5,6 +5,7 @@ import { persist } from "zustand/middleware"
 import type {
   ActivityEvent,
   Allocation,
+  CloseMemo,
   Asset,
   BankAccount,
   Bill,
@@ -37,13 +38,15 @@ import type {
 import { fillAllocation } from "./capital"
 import { todayISO } from "./format"
 import { seed } from "./seed"
+import { fillPersona } from "./additions"
+import { cloneStatement, shiftPeriod } from "./metrics"
 
 export function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-3)}`
 }
 
-function note(activity: ActivityEvent[], message: string): ActivityEvent[] {
-  return [{ id: uid("log"), at: new Date().toISOString(), message }, ...activity].slice(0, 250)
+function note(activity: ActivityEvent[], message: string, replyToId?: string | null): ActivityEvent[] {
+  return [{ id: uid("log"), at: new Date().toISOString(), message, replyToId: replyToId ?? null }, ...activity].slice(0, 250)
 }
 
 function patchById<T extends { id: string }>(rows: T[], id: string, patch: Partial<T>) {
@@ -134,6 +137,11 @@ interface Actions {
   addIdea: (input: Omit<Idea, "id">) => string
   updateIdea: (id: string, patch: Partial<Idea>) => void
   deleteIdea: (id: string) => void
+  saveMemo: (period: string, patch: Partial<CloseMemo>) => void
+  toggleCheck: (id: string) => void
+  signClose: (period: string, name: string) => void
+  replyActivity: (replyToId: string, message: string) => void
+  draftMonth: (companyId: string) => void
 }
 
 export type Portfolio = Data & Actions
@@ -166,6 +174,7 @@ function dropCompany(data: Data, id: string): Partial<Data> {
     risks: byCompany(data.risks),
     capTable: byCompany(data.capTable),
     posts: byCompany(data.posts),
+    costLines: byCompany(data.costLines),
   }
 }
 
@@ -198,6 +207,9 @@ const DATA_KEYS: (keyof Data)[] = [
   "capital",
   "asks",
   "ideas",
+  "costLines",
+  "memos",
+  "checks",
   "asOf",
 ]
 
@@ -214,7 +226,10 @@ function normalizeAsk(ask: CapitalAsk): CapitalAsk {
 function mergePersisted(persisted: unknown, current: Portfolio): Portfolio {
   if (!persisted || typeof persisted !== "object") return current
   const saved = persisted as Partial<Book>
-  return { ...current, ...saved, ...fillAllocation(saved, seed()) }
+  const fresh = seed()
+  const allocated = fillAllocation(saved, fresh)
+  const persona = fillPersona({ ...saved, companies: allocated.companies }, fresh)
+  return { ...current, ...saved, ...allocated, ...persona }
 }
 
 export const usePortfolio = create<Portfolio>()(
@@ -538,6 +553,56 @@ export const usePortfolio = create<Portfolio>()(
           return {
             ideas: state.ideas.filter((row) => row.id !== id),
             activity: note(state.activity, `Removed research idea ${idea.name}.`),
+          }
+        }),
+      saveMemo: (period, patch) =>
+        set((state) => {
+          const existing = state.memos.find((memo) => memo.period === period)
+          const next: CloseMemo = {
+            id: existing?.id ?? uid("memo"),
+            period,
+            changed: "",
+            doing: "",
+            notDoing: "",
+            signedBy: "",
+            signedAt: null,
+            ...existing,
+            ...patch,
+          }
+          return {
+            memos: existing ? state.memos.map((memo) => (memo.period === period ? next : memo)) : [...state.memos, next],
+            activity: note(state.activity, `Updated the ${period} close memo.`),
+          }
+        }),
+      toggleCheck: (id) =>
+        set((state) => ({
+          checks: state.checks.map((check) => (check.id === id ? { ...check, done: !check.done } : check)),
+        })),
+      signClose: (period, name) =>
+        set((state) => ({
+          memos: state.memos.map((memo) =>
+            memo.period === period ? { ...memo, signedBy: name, signedAt: new Date().toISOString().slice(0, 10) } : memo,
+          ),
+          activity: note(state.activity, `${name} signed the ${period} close.`),
+        })),
+      replyActivity: (replyToId, message) =>
+        set((state) => ({
+          activity: note(state.activity, message, replyToId),
+        })),
+      draftMonth: (companyId) =>
+        set((state) => {
+          const mine = state.statements.filter((row) => row.companyId === companyId).sort((a, b) => a.period.localeCompare(b.period))
+          const latest = mine.at(-1)
+          if (!latest) return {}
+          const period = shiftPeriod(latest.period, 1)
+          if (mine.some((row) => row.period === period)) {
+            return { activity: note(state.activity, `A statement for ${period} is already on the book.`) }
+          }
+          const company = state.companies.find((row) => row.id === companyId)
+          const agent = state.people.find((person) => person.kind === "agent" && (person.homeCompanyId === companyId || state.allocations.some((row) => row.personId === person.id && row.companyId === companyId)))
+          return {
+            statements: [...state.statements, { ...cloneStatement(latest), id: uid("st"), period }],
+            activity: note(state.activity, `${agent?.name ?? "Agent"} drafted ${period} for ${company?.name ?? "a company"}.`),
           }
         }),
     }),

@@ -6,6 +6,7 @@ import { TermHBar, TermLine, TermStacked, usePalette } from "@/components/charts
 import { AssetDialog, ConfirmDialog, PersonDialog, PostDialog, WikiDialog, WorkDialog } from "@/components/dialogs/editors"
 import { Button } from "@/components/ui/button"
 import { Empty, MiniActions, Num, PageHead, Panel, SpanToggle, TermTable } from "@/components/terminal/kit"
+import { audienceYield } from "@/lib/additions"
 import { pct } from "@/lib/format"
 import { projectRows } from "@/lib/grain"
 import { shiftPeriod, statementAt, windowPeriods } from "@/lib/metrics"
@@ -57,12 +58,20 @@ export function AudienceDesk({ companyId, embedded = false }: { companyId?: stri
   const posts = book.posts.filter((post) => companies.some((company) => company.id === post.companyId))
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Market" title="Audience" lede="Site traffic, channel mix, and social. The funnel is visits, goal conversions, then customers invoiced that month." actions={<SpanToggle value={span} onChange={setSpan} />} />}
+      {embedded ? null : <PageHead kicker="Market" title="Audience" job="See whether attention is showing up in revenue." lede="Site traffic, channel mix, and social. The funnel is visits, goal conversions, then customers invoiced that month." actions={<SpanToggle value={span} onChange={setSpan} />} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         <div className="flex justify-end gap-2">
           {embedded ? <SpanToggle value={span} onChange={setSpan} /> : null}
           <Button size="sm" onClick={() => setOpen(true)}>Add post</Button>
         </div>
+        {(() => {
+          const line = audienceYield(book, companies.map((company) => company.id))
+          return (
+            <Panel title="Attention and revenue">
+              <div className="text-xs">This close turned {line.sessions.toLocaleString()} sessions into revenue of <Num value={line.revenue} /> · <Num value={line.perThousand} /> per 1,000 sessions. Followers {line.followers.toLocaleString()}.</div>
+            </Panel>
+          )
+        })()}
         <div className="grid gap-2 xl:grid-cols-2">
           <Panel title="Sessions and users">
             <TermLine data={series.map((point) => ({ period: point.period, Sessions: point.sessions, Users: point.users }))} series={[{ key: "Sessions", name: "Sessions", color: palette[0] }, { key: "Users", name: "Users", color: palette[3] }]} />
@@ -117,7 +126,7 @@ export function PeopleDesk({ companyId, embedded = false }: { companyId?: string
   const doing = book.work.filter((item) => item.status === "doing" && (!companyId || item.companyId === companyId))
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Firm" title="People and agents" lede="Allocation is the assignment. Home company is where they sit." actions={<Button size="sm" onClick={() => setOpen(true)}>Add person or agent</Button>} />}
+      {embedded ? null : <PageHead kicker="Firm" title="People and agents" job="See who is on the book and what an open role adds." lede="Allocation is the assignment. Home company is where they sit." actions={<Button size="sm" onClick={() => setOpen(true)}>Add person or agent</Button>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex border border-border">
@@ -129,6 +138,13 @@ export function PeopleDesk({ companyId, embedded = false }: { companyId?: string
           </div>
           {embedded ? <Button size="sm" onClick={() => setOpen(true)}>Add person or agent</Button> : null}
         </div>
+        <Panel title="Open roles next to the load">
+          {book.roles.filter((role) => role.status !== "filled" && (!companyId || role.companyId === companyId)).length === 0 ? <Empty>No open roles.</Empty> : book.roles.filter((role) => role.status !== "filled" && (!companyId || role.companyId === companyId)).map((role) => (
+            <div key={role.id} className="border-b border-border/70 py-1 text-xs">
+              {role.title} · {role.status} · {book.companies.find((company) => company.id === role.companyId)?.name} · {book.work.filter((item) => item.companyId === role.companyId && item.status !== "done").length} open items
+            </div>
+          ))}
+        </Panel>
         <Panel title="Roster" bodyClassName="p-0">
           <TermTable
             rows={people}
@@ -189,7 +205,7 @@ export function AssetsDesk({ companyId, embedded = false }: { companyId?: string
   })).filter((item) => item.value > 0)
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Firm" title="Assets" lede="Book value owned by each company. Cash is on the treasury desk." actions={<Button size="sm" onClick={() => setOpen(true)}>Add asset</Button>} />}
+      {embedded ? null : <PageHead kicker="Firm" title="Assets" job="See what the companies own besides cash." lede="Book value owned by each company. Cash is on the treasury desk." actions={<Button size="sm" onClick={() => setOpen(true)}>Add asset</Button>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         <div className="flex flex-wrap justify-between gap-2">
           <div className="flex flex-wrap gap-1">
@@ -225,7 +241,7 @@ function FilterChip({ on, onClick, label }: { on: boolean; onClick: () => void; 
   return <button type="button" onClick={onClick} className={`border border-border px-2 py-1 font-mono text-[10px] tracking-wider uppercase ${on ? "bg-amber text-primary-foreground" : "text-muted-foreground"}`}>{label}</button>
 }
 
-const COLUMNS: WorkStatus[] = ["backlog", "doing", "done"]
+const COLUMNS: WorkStatus[] = ["backlog", "doing", "blocked", "done"]
 
 export function WorkDesk({ companyId, embedded = false }: { companyId?: string; embedded?: boolean }) {
   const book = usePortfolio()
@@ -235,10 +251,10 @@ export function WorkDesk({ companyId, embedded = false }: { companyId?: string; 
   const items = book.work.filter((item) => !companyId || item.companyId === companyId)
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Firm" title="Work" lede="The board of who is on what, person or agent." actions={<Button size="sm" onClick={() => setOpen(true)}>Add work</Button>} />}
+      {embedded ? null : <PageHead kicker="Firm" title="Work" job="See the queue, including what is blocked." lede="The board of who is on what, person or agent." actions={<Button size="sm" onClick={() => setOpen(true)}>Add work</Button>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? <div className="flex justify-end"><Button size="sm" onClick={() => setOpen(true)}>Add work</Button></div> : null}
-        <div className="grid gap-2 lg:grid-cols-3">
+        <div className="grid gap-2 lg:grid-cols-4">
           {COLUMNS.map((status) => (
             <Panel key={status} title={status}>
               {items.filter((item) => item.status === status).length === 0 ? <Empty>Nothing here.</Empty> : null}
@@ -246,15 +262,19 @@ export function WorkDesk({ companyId, embedded = false }: { companyId?: string; 
                 const index = COLUMNS.indexOf(status)
                 return (
                   <article key={item.id} className="mb-2 border border-border p-2 text-xs">
-                    <div className="font-medium">{item.title}</div>
+                    <div className="font-medium">{item.priority ? `P${item.priority} · ` : ""}{item.title}</div>
                     <div className="mt-1 font-mono text-[10px] text-muted-foreground">
                       {book.people.find((person) => person.id === item.assigneeId)?.name ?? "Unassigned"} · {book.companies.find((company) => company.id === item.companyId)?.name}
                       {item.due ? ` · due ${item.due}` : ""}
                     </div>
+                    {item.dependsOnId ? <p className="mt-1 text-amber">Waits on {book.work.find((row) => row.id === item.dependsOnId)?.title ?? "another item"}</p> : null}
+                    {item.doneNote || item.nextNote || item.stuckNote ? (
+                      <p className="mt-1 text-muted-foreground">{[item.doneNote, item.nextNote, item.stuckNote].filter(Boolean).join(" · ")}</p>
+                    ) : null}
                     {item.notes ? <p className="mt-1 text-muted-foreground">{item.notes}</p> : null}
                     <div className="mt-2 flex gap-1">
                       {index > 0 ? <Button size="xs" variant="outline" onClick={() => move(item.id, COLUMNS[index - 1])}>Back</Button> : null}
-                      {index < 2 ? <Button size="xs" variant="outline" onClick={() => move(item.id, COLUMNS[index + 1])}>Forward</Button> : null}
+                      {index < COLUMNS.length - 1 ? <Button size="xs" variant="outline" onClick={() => move(item.id, COLUMNS[index + 1])}>Forward</Button> : null}
                       <Button size="xs" variant="ghost" className="text-down" onClick={() => remove(item.id)}>Del</Button>
                     </div>
                   </article>
@@ -280,7 +300,7 @@ export function WikiDesk({ companyId, embedded = false }: { companyId?: string; 
   const page = pages.find((item) => item.id === selected) ?? pages[0]
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Firm" title="Wiki" lede="Briefs, meetings, decisions, and SOPs for each company." actions={<Button size="sm" onClick={() => setOpen(true)}>New page</Button>} />}
+      {embedded ? null : <PageHead kicker="Firm" title="Wiki" job="Read the briefs, the bets, and when a decision gets reviewed." lede="Briefs, meetings, decisions, and SOPs for each company." actions={<Button size="sm" onClick={() => setOpen(true)}>New page</Button>} />}
       <div className={`${embedded ? "" : "p-2 lg:p-3"} grid gap-2 lg:grid-cols-[16rem_1fr]`}>
         <Panel title="Pages" bodyClassName="p-0" action={embedded ? <Button size="xs" onClick={() => setOpen(true)}>New</Button> : undefined}>
           {pages.length === 0 ? <Empty>No pages yet.</Empty> : pages.map((item) => (
@@ -293,7 +313,10 @@ export function WikiDesk({ companyId, embedded = false }: { companyId?: string; 
         <Panel title={page ? page.title : "Page"}>
           {page ? (
             <div className="grid gap-2">
-              <div className="font-mono text-[10px] text-muted-foreground">{page.kind} · updated {page.updated}</div>
+              <div className="font-mono text-[10px] text-muted-foreground">
+                {page.kind} · updated {page.updated}
+                {page.kind === "decision" ? ` · ${page.reversible ? "reversible" : page.reversible === false ? "one way" : "reversibility open"}${page.reviewDate ? ` · review ${page.reviewDate}` : ""}` : ""}
+              </div>
               <textarea
                 className="min-h-56 w-full border border-border bg-background p-2 font-mono text-xs"
                 value={selected === page.id ? draft || page.body : page.body}

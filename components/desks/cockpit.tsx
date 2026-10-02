@@ -54,6 +54,7 @@ export function Cockpit({ id }: { id: string }) {
       <PageHead
         kicker={`${company.status} · ${HEALTH_LABEL[company.health]} · ${company.businessModel} · ${company.ownershipPct}% owned${holdco ? ` · ${holdco.name}` : " · standalone"}`}
         title={company.name}
+        job={company.productLead || "See this company, its product, and what the owner earns."}
         lede={company.description}
         actions={<Button size="sm" variant="outline" onClick={() => setEdit(true)}>Edit company</Button>}
       />
@@ -64,6 +65,7 @@ export function Cockpit({ id }: { id: string }) {
           <span>{company.website}</span>
           <span>{company.entityType}</span>
         </div>
+        {company.moatNote ? <p className="text-xs text-muted-foreground">{company.moatNote}</p> : null}
         <Lattice snap={snap} />
         <Tabs
           value={tab}

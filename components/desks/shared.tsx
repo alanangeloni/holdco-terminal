@@ -12,6 +12,8 @@ export function Lattice({ snap }: { snap: Snapshot }) {
     { label: "GM%", value: <Num value={snap.grossMargin} kind="pct" /> },
     { label: "OI", value: <Num value={snap.operatingIncome} signed /> },
     { label: "NI", value: <Num value={snap.netIncome} signed />, sub: <Num value={snap.momNetIncome} kind="pct" signed /> },
+    { label: "OE", value: <Num value={snap.ownerEarnings} signed /> },
+    { label: "ROC", value: <Num value={snap.returnOnCapital} kind="pct" /> },
     { label: "NM%", value: <Num value={snap.netMargin} kind="pct" /> },
     { label: "CASH", value: <Num value={snap.cash} /> },
     { label: "RUNWAY", value: <span className="font-mono">{snap.runway === null ? "n/m" : `${snap.runway.toFixed(1)} mo`}</span> },
