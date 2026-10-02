@@ -1,6 +1,7 @@
 import type {
   Asset,
   Book,
+  Bottleneck,
   BusinessModel,
   CapTableEntry,
   Company,
@@ -426,6 +427,8 @@ function buildStatements(profile: Profile, periods: string[]) {
     draft.cfo = round(net * 0.82)
     draft.cfi = round(-(draft.fixedAssets - prevFixed))
     draft.cff = round(cash - prevCash - draft.cfo - draft.cfi)
+    draft.depreciation = round(Math.max(0, draft.fixedAssets) * 0.008)
+    draft.maintenanceCapex = round(Math.max(revenue * 0.012, Math.abs(Math.min(draft.cfi, 0)) * 0.4))
     statements.push(plugEquity(draft))
   }
   return statements
@@ -548,6 +551,39 @@ const HEALTH: Record<string, HealthTier> = {
   c_kite: "stop",
 }
 
+const MOAT: Record<string, { note: string; bottleneck: Bottleneck; lead: string }> = {
+  c_northglass: {
+    note: "Sites stay because dispatch, billing, and the portal are one contract. Ripping it out stops the trucks.",
+    bottleneck: "person",
+    lead: "Dispatch and billing for multi-site operators, priced per site.",
+  },
+  c_helio: {
+    note: "Lanes stay because the shipper already trained the dock on Helio's cutoff.",
+    bottleneck: "vendor",
+    lead: "Regional freight with a cutoff the dock already knows.",
+  },
+  c_vesper: {
+    note: "Wholesale stays for the roast. The cafe stays for the room. Neither is a bargain.",
+    bottleneck: "cash",
+    lead: "A roast and a room on Division Street.",
+  },
+  c_lumen: {
+    note: "Contracts stay because the technician already has the keys and the history.",
+    bottleneck: "person",
+    lead: "Field maintenance for buildings that cannot wait.",
+  },
+  c_atlas: {
+    note: "Readers stay for the brief they cannot get from a feed.",
+    bottleneck: "vendor",
+    lead: "A paid brief for operators who already have the data and not the judgment.",
+  },
+  c_kite: {
+    note: "Clients stay when the work is visible. The studio does not win on price.",
+    bottleneck: "machine",
+    lead: "Brand and campaign work, billed at the published rate.",
+  },
+}
+
 const ATLAS_MARKET = {
   liveListings: 186,
   listingGoal: 400,
@@ -587,6 +623,9 @@ export function seed(): Book {
     officers: profile.officers,
     health: HEALTH[profile.id] ?? "hold",
     marketplace: profile.id === "c_atlas" ? ATLAS_MARKET : null,
+    moatNote: MOAT[profile.id]?.note ?? "",
+    bottleneck: MOAT[profile.id]?.bottleneck,
+    productLead: MOAT[profile.id]?.lead ?? "",
   }))
   const statements = profiles.flatMap((profile) => buildStatements(profile, periods))
   const latestOf = (id: string) => statements.find((s) => s.companyId === id && s.period === SEED_AS_OF)!
@@ -677,11 +716,18 @@ export function seed(): Book {
     })
 
     const shares = [0.48, 0.31, 0.21]
+    const retentions = [0.91, 0.84, 0.72]
     profile.products.forEach((name, index) => {
       productLines.push({
         id: `pr_${profile.id}_${index + 1}`,
         companyId: profile.id,
         name,
+        user: profile.businessModel === "saas" ? "The operator who runs the sites" : "The buyer who already has a vendor",
+        problem: `${name} is how ${profile.name} gets paid for the job customers cannot drop.`,
+        bet: `${name} keeps its share of ${profile.name} if the price holds.`,
+        killCriterion: `Pull ${name} if retention falls under 70% for two closes.`,
+        price: round(latest.revenue * shares[index] / Math.max(1, latest.conversions)),
+        retention: retentions[index],
         monthly: statements
           .filter((s) => s.companyId === profile.id)
           .map((s, monthIndex) => {
@@ -692,6 +738,36 @@ export function seed(): Book {
       })
     })
   }
+
+  customers.push({
+    id: "cu_helio_harbor",
+    companyId: "c_helio",
+    name: "Harborline Logistics",
+    segment: "Mid-market",
+    since: "2024-02-01",
+  })
+  invoices.push({
+    id: "in_helio_harbor",
+    companyId: "c_helio",
+    customerId: "cu_helio_harbor",
+    number: "INV-HEL-2410",
+    issue: "2026-09-12",
+    due: "2026-10-20",
+    amount: 18000,
+    status: "open",
+  })
+  vendors.push({ id: "ve_atlas_cloud", companyId: "c_atlas", name: "Cloudline Hosting", category: "Software" })
+  bills.push({
+    id: "bi_atlas_cloud",
+    companyId: "c_atlas",
+    vendorId: "ve_atlas_cloud",
+    number: "BILL-1844",
+    issue: "2026-09-01",
+    due: "2026-10-18",
+    amount: 4200,
+    status: "open",
+    category: "Software",
+  })
 
   const people: PersonOrAgent[] = [
     { id: "p_elena", name: "Elena Voss", kind: "person", role: "Chief Executive Officer", status: "active", reportsToId: null, annualCost: 280000, homeCompanyId: "c_northglass", runtime: "", monthlyRuns: 0 },
@@ -785,7 +861,18 @@ export function seed(): Book {
     title,
     notes,
     due,
+    priority: (index % 3) + 1,
   }))
+  const waiting = work.find((item) => item.title === "Cash weekly with Ruth")
+  const letter = work.find((item) => item.title === "Wholesale price increase")
+  if (waiting) {
+    waiting.status = "blocked"
+    waiting.dependsOnId = letter?.id ?? null
+    waiting.doneNote = "The Monday cash note went out."
+    waiting.nextNote = "Sit with Ruth once the price letter is sent."
+    waiting.stuckNote = "Waiting on the wholesale letter before the cash conversation is useful."
+    waiting.priority = 1
+  }
 
   const capRows: [string, string, string, number, number][] = [
     ["c_northglass", HOLDCO_NAME, "Common", 1000000, 100],
@@ -830,6 +917,7 @@ export function seed(): Book {
     amount: Number(amount),
     expectedClose,
     ownerId,
+    probability: stage === "lead" ? 0.1 : stage === "qualified" ? 0.25 : stage === "proposal" ? 0.4 : stage === "negotiation" ? 0.6 : stage === "won" ? 1 : 0,
   }))
 
   const bankFor = (companyId: string, institution: string, mask: string, ratio: number, index: number) => {
@@ -895,6 +983,7 @@ export function seed(): Book {
         fiscalYearEnd: "12-31",
         currency: "USD",
         description: "Operating holdco for software, freight, coffee, and field services. Two watched companies sit outside the stack.",
+        hurdleRate: 0.15,
       },
     ],
     companies,
@@ -915,6 +1004,21 @@ export function seed(): Book {
         rate: 0.0725,
         maturity: "2029-06-30",
         outstanding: 1180000,
+        covenantName: "Minimum cash",
+        covenantLimit: 500000,
+        covenantActual: latestOf("c_helio").cash,
+      },
+      {
+        id: "db_vesper",
+        companyId: "c_vesper",
+        lender: "Willamette Credit",
+        principal: 200000,
+        rate: 0.09,
+        maturity: "2026-12-15",
+        outstanding: 160000,
+        covenantName: "Minimum cash",
+        covenantLimit: round(latestOf("c_vesper").cash * 1.15),
+        covenantActual: latestOf("c_vesper").cash,
       },
     ],
     loans: [
@@ -932,22 +1036,22 @@ export function seed(): Book {
     work,
     pages: [
       { id: "pg_1", companyId: "c_northglass", kind: "brief", title: "What Northglass sells", body: "Dispatch, billing, and a portal. Price is per site, with a floor. Civic Sites is the reference logo.", updated: "2026-09-18" },
-      { id: "pg_2", companyId: "c_northglass", kind: "decision", title: "Hold price on Mesa", body: "Do not discount phase 2 below the current per-site rate. Marcus owns the conversation.", updated: "2026-09-28" },
+      { id: "pg_2", companyId: "c_northglass", kind: "decision", title: "Hold price on Mesa", body: "Do not discount phase 2 below the current per-site rate. Marcus owns the conversation.", updated: "2026-09-28", reversible: false, reviewDate: "2026-10-30" },
       { id: "pg_3", companyId: "c_helio", kind: "meeting", title: "September lane review", body: "Fuel is the swing factor. Arcadia wants a cap. Priya will take a one-quarter collar, not a year.", updated: "2026-09-22" },
-      { id: "pg_4", companyId: "c_vesper", kind: "decision", title: "Tuesday hours cut", body: "Close the Division cafe at 3pm on Tuesdays until payroll is back under 36% of cafe sales.", updated: "2026-09-30" },
+      { id: "pg_4", companyId: "c_vesper", kind: "decision", title: "Tuesday hours cut", body: "Close the Division cafe at 3pm on Tuesdays until payroll is back under 36% of cafe sales.", updated: "2026-09-30", reversible: true, reviewDate: "2026-11-01" },
       { id: "pg_5", companyId: "c_vesper", kind: "sop", title: "Weekly cash note", body: "Ruth sends cash, card batches, and unpaid wholesale every Monday. Amira reads it the same day.", updated: "2026-09-12" },
       { id: "pg_6", companyId: "c_lumen", kind: "brief", title: "Contract versus project", body: "Maintenance is the book. Project work fills gaps and wrecks utilization if it is more than a quarter of hours.", updated: "2026-08-30" },
       { id: "pg_7", companyId: "c_atlas", kind: "meeting", title: "September audience", body: "Sessions fell. Paid share moved. The brief still has to ship. Helen owns the explanation in the pack.", updated: "2026-10-01" },
       { id: "pg_8", companyId: "c_kite", kind: "sop", title: "Portfolio client rule", body: "Holdco companies are billed at the published rate. No silent discounts. Owen signs exceptions.", updated: "2026-07-14" },
     ],
     kpis: [
-      { id: "kp_1", companyId: "c_northglass", name: "Net revenue retention", unit: "%", target: 110, actual: 108, direction: "up" },
-      { id: "kp_2", companyId: "c_northglass", name: "Logo churn", unit: "%", target: 2, actual: 2.8, direction: "down" },
-      { id: "kp_3", companyId: "c_helio", name: "On-time delivery", unit: "%", target: 97, actual: 98.4, direction: "up" },
-      { id: "kp_4", companyId: "c_vesper", name: "Same-store sales", unit: "%", target: 4, actual: 1.2, direction: "up" },
-      { id: "kp_5", companyId: "c_lumen", name: "Technician utilization", unit: "%", target: 75, actual: 71, direction: "up" },
-      { id: "kp_6", companyId: "c_atlas", name: "Paid conversion", unit: "%", target: 3.1, actual: 2.4, direction: "up" },
-      { id: "kp_7", companyId: "c_kite", name: "Bench utilization", unit: "%", target: 70, actual: 76, direction: "up" },
+      { id: "kp_1", companyId: "c_northglass", name: "Net revenue retention", unit: "%", target: 110, actual: 108, direction: "up", kind: "output" },
+      { id: "kp_2", companyId: "c_northglass", name: "Logo churn", unit: "%", target: 2, actual: 2.8, direction: "down", kind: "output" },
+      { id: "kp_3", companyId: "c_helio", name: "On-time delivery", unit: "%", target: 97, actual: 98.4, direction: "up", kind: "input" },
+      { id: "kp_4", companyId: "c_vesper", name: "Same-store sales", unit: "%", target: 4, actual: 1.2, direction: "up", kind: "output" },
+      { id: "kp_5", companyId: "c_lumen", name: "Technician utilization", unit: "%", target: 75, actual: 71, direction: "up", kind: "input" },
+      { id: "kp_6", companyId: "c_atlas", name: "Paid conversion", unit: "%", target: 3.1, actual: 2.4, direction: "up", kind: "output" },
+      { id: "kp_7", companyId: "c_kite", name: "Bench utilization", unit: "%", target: 70, actual: 76, direction: "up", kind: "input" },
     ],
     objectives: [
       { id: "ok_1", companyId: "c_northglass", quarter: "2026 Q4", title: "Defend margin without losing Mesa", ownerId: "p_elena", progress: 0.45, keyResults: ["Hold gross margin above 75%", "Sign Mesa phase 2 at list", "Close the September binder"] },
@@ -965,7 +1069,7 @@ export function seed(): Book {
       { id: "ev_7", companyId: "c_helio", kind: "filing", title: "Fuel tax return", due: "2026-09-20", status: "done" },
     ],
     risks: [
-      { id: "rk_1", companyId: "c_vesper", title: "Cafe labor above gross profit", severity: 5, likelihood: 4, ownerId: "p_ruth", mitigation: "Cut Tuesday hours and reprice wholesale.", status: "open" },
+      { id: "rk_1", companyId: "c_vesper", title: "Cafe labor above gross profit", severity: 5, likelihood: 4, ownerId: "p_ruth", mitigation: "Cut Tuesday hours and reprice wholesale.", status: "open", loss: 180000, limit: 100000 },
       { id: "rk_2", companyId: "c_helio", title: "Fuel collar on Arcadia", severity: 3, likelihood: 4, ownerId: "p_priya", mitigation: "Offer a one-quarter collar only.", status: "mitigating" },
       { id: "rk_3", companyId: "c_northglass", title: "Logo churn above 2%", severity: 3, likelihood: 3, ownerId: "p_marcus", mitigation: "Save desk on the two at-risk logos.", status: "open" },
       { id: "rk_4", companyId: "c_atlas", title: "Paid traffic dependency", severity: 3, likelihood: 4, ownerId: "p_helen", mitigation: "Shift the October brief to organic distribution.", status: "mitigating" },
@@ -983,7 +1087,8 @@ export function seed(): Book {
       { id: "po_7", companyId: "c_kite", platform: "instagram", title: "Northglass homepage, in progress", published: "2026-09-26", impressions: 12800, engagement: 0.046 },
     ],
     activity: [
-      { id: "log_seed", at: "2026-10-02T12:00:00.000Z", message: "September close loaded for the portfolio." },
+      { id: "log_seed", at: "2026-10-02T12:00:00.000Z", message: "September close loaded for the portfolio.", replyToId: null },
+      { id: "log_reply", at: "2026-10-02T12:20:00.000Z", message: "Amira: the Vesper cash tie is the one to sign.", replyToId: "log_seed" },
     ],
     capital: {
       deployableCash: 250000,
@@ -1128,6 +1233,40 @@ export function seed(): Book {
         stage: "greenlit",
         killReason: "",
       },
+    ],
+    costLines: profiles.flatMap((profile) => {
+      const latest = latestOf(profile.id)
+      const volume = Math.max(1, latest.conversions)
+      const lines: [string, number, number][] = [
+        ["Delivery unit", latest.cogs / volume, volume],
+        ["Labor block", latest.payroll / 160, 160],
+        ["Overhead load", (latest.ga + latest.otherOpex) / volume, volume],
+      ]
+      return lines.map(([name, unitCost, units], index) => ({
+        id: `cost_${profile.id}_${index + 1}`,
+        companyId: profile.id,
+        period: SEED_AS_OF,
+        name,
+        unitCost: round(unitCost),
+        volume: round(units),
+      }))
+    }),
+    memos: [
+      {
+        id: "memo_2026-09",
+        period: "2026-09",
+        changed: "Northglass margin compressed. Atlas revenue fell. Vesper cash is inside six months.",
+        doing: "Hold Mesa at list. Reprice Vesper wholesale. Publish the Atlas freight brief.",
+        notDoing: "No new cafe capex. No discount on phase 2.",
+        signedBy: "",
+        signedAt: null,
+      },
+    ],
+    checks: [
+      { id: "ck_1", period: "2026-09", label: "Bank balances tie to the cash line", done: true, owner: "Amira Shah" },
+      { id: "ck_2", period: "2026-09", label: "Intercompany loans scheduled", done: true, owner: "Jonah Peck" },
+      { id: "ck_3", period: "2026-09", label: "Covenants calculated", done: false, owner: "Amira Shah" },
+      { id: "ck_4", period: "2026-09", label: "Owner earnings reviewed", done: false, owner: "Elena Voss" },
     ],
     asOf: SEED_AS_OF,
   }

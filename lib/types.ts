@@ -7,7 +7,9 @@ export type AssetCategory = "equity" | "ip" | "real_estate" | "equipment" | "dom
 export type WorkerKind = "person" | "agent"
 export type WorkerStatus = "active" | "inactive"
 export type RoleStatus = "open" | "interviewing" | "offer" | "filled"
-export type WorkStatus = "backlog" | "doing" | "done"
+export type WorkStatus = "backlog" | "doing" | "blocked" | "done"
+export type Bottleneck = "cash" | "person" | "vendor" | "machine"
+export type KpiKind = "input" | "output"
 export type WikiKind = "brief" | "meeting" | "decision" | "sop"
 export type KpiDirection = "up" | "down"
 export type EventKind = "filing" | "insurance" | "contract" | "license" | "board"
@@ -41,6 +43,7 @@ export interface HoldingCompany {
   fiscalYearEnd: string
   currency: string
   description: string
+  hurdleRate?: number
 }
 
 export interface Company {
@@ -61,6 +64,9 @@ export interface Company {
   officers: Officer[]
   health: HealthTier
   marketplace: MarketplaceProfile | null
+  moatNote?: string
+  bottleneck?: Bottleneck
+  productLead?: string
 }
 
 export interface MarketplaceProfile {
@@ -160,6 +166,8 @@ export interface MonthlyStatement {
   channelReferral: number
   channelSocial: number
   social: Record<Platform, SocialPoint>
+  depreciation?: number
+  maintenanceCapex?: number
 }
 
 export interface ProductMonth {
@@ -172,6 +180,12 @@ export interface ProductLine {
   companyId: string
   name: string
   monthly: ProductMonth[]
+  user?: string
+  problem?: string
+  bet?: string
+  killCriterion?: string
+  price?: number
+  retention?: number
 }
 
 export interface Customer {
@@ -221,6 +235,7 @@ export interface Deal {
   amount: number
   expectedClose: string
   ownerId: string | null
+  probability?: number
 }
 
 export interface BankAccount {
@@ -240,6 +255,9 @@ export interface DebtFacility {
   rate: number
   maturity: string
   outstanding: number
+  covenantName?: string
+  covenantLimit?: number
+  covenantActual?: number
 }
 
 export interface IntercompanyLoan {
@@ -296,6 +314,11 @@ export interface WorkItem {
   title: string
   notes: string
   due: string | null
+  dependsOnId?: string | null
+  doneNote?: string
+  nextNote?: string
+  stuckNote?: string
+  priority?: number
 }
 
 export interface WikiPage {
@@ -305,6 +328,8 @@ export interface WikiPage {
   title: string
   body: string
   updated: string
+  reversible?: boolean
+  reviewDate?: string
 }
 
 export interface Kpi {
@@ -315,6 +340,7 @@ export interface Kpi {
   target: number
   actual: number
   direction: KpiDirection
+  kind?: KpiKind
 }
 
 export interface Objective {
@@ -345,6 +371,8 @@ export interface Risk {
   ownerId: string | null
   mitigation: string
   status: RiskStatus
+  loss?: number
+  limit?: number
 }
 
 export interface CapTableEntry {
@@ -370,6 +398,34 @@ export interface ActivityEvent {
   id: string
   at: string
   message: string
+  replyToId?: string | null
+}
+
+export interface CostLine {
+  id: string
+  companyId: string
+  period: string
+  name: string
+  unitCost: number
+  volume: number
+}
+
+export interface CloseMemo {
+  id: string
+  period: string
+  changed: string
+  doing: string
+  notDoing: string
+  signedBy: string
+  signedAt: string | null
+}
+
+export interface CloseCheck {
+  id: string
+  period: string
+  label: string
+  done: boolean
+  owner: string
 }
 
 export interface Book {
@@ -401,6 +457,9 @@ export interface Book {
   capital: CapitalSettings
   asks: CapitalAsk[]
   ideas: Idea[]
+  costLines: CostLine[]
+  memos: CloseMemo[]
+  checks: CloseCheck[]
   asOf: string
 }
 
