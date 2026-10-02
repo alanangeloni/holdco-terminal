@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { PALETTE, TermBars, TermCombo, TermHBar, TermLine, TermStacked, TermWaterfall } from "@/components/charts/charts"
+import { TermBars, TermCombo, TermHBar, TermLine, TermStacked, TermWaterfall, usePalette } from "@/components/charts/charts"
 import {
   BankDialog,
   BillDialog,
@@ -30,6 +30,7 @@ function useSpan() {
 
 export function StatementsDesk({ companyId, embedded = false }: { companyId?: string; embedded?: boolean }) {
   const book = usePortfolio()
+  const palette = usePalette()
   const remove = usePortfolio((state) => state.deleteStatement)
   const { span, setSpan } = useSpan()
   const [open, setOpen] = useState(false)
@@ -57,17 +58,17 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
           {pnl ? <TermWaterfall data={waterfall(pnl)} /> : <Empty>Enter a statement for {book.asOf}.</Empty>}
         </Panel>
         <Panel title="Revenue versus costs">
-          <TermBars data={series.map((point) => ({ period: point.period, Revenue: point.revenue, Costs: point.costs }))} series={[{ key: "Revenue", name: "Revenue", color: PALETTE[0] }, { key: "Costs", name: "Costs", color: PALETTE[4] }]} />
+          <TermBars data={series.map((point) => ({ period: point.period, Revenue: point.revenue, Costs: point.costs }))} series={[{ key: "Revenue", name: "Revenue", color: palette[0] }, { key: "Costs", name: "Costs", color: palette[4] }]} />
         </Panel>
         <Panel title="Cost mix">
           <TermStacked
             data={series.map((point) => ({ period: point.period, COGS: point.cogs, Payroll: point.payroll, Marketing: point.marketing, "G&A": point.ga, Other: point.otherOpex }))}
             series={[
-              { key: "COGS", name: "COGS", color: "#8aa0b4" },
-              { key: "Payroll", name: "Payroll", color: "#f5a524" },
-              { key: "Marketing", name: "Marketing", color: "#6ea8fe" },
-              { key: "G&A", name: "G&A", color: "#d6d3d1" },
-              { key: "Other", name: "Other", color: "#5c6b7a" },
+              { key: "COGS", name: "COGS", color: palette[2] },
+              { key: "Payroll", name: "Payroll", color: palette[0] },
+              { key: "Marketing", name: "Marketing", color: palette[3] },
+              { key: "G&A", name: "G&A", color: palette[5] },
+              { key: "Other", name: "Other", color: palette[6] },
             ]}
           />
         </Panel>
@@ -118,7 +119,7 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
       <Panel title="Net income">
         <TermLine
           data={series.map((point) => ({ period: point.period, "Net income": point.netIncome }))}
-          series={[{ key: "Net income", name: "Portfolio net income", color: PALETTE[1] }]}
+          series={[{ key: "Net income", name: "Portfolio net income", color: palette[1] }]}
         />
       </Panel>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -127,7 +128,7 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
             <TermLine
               height="h-28"
               data={companySeries(book, item.id, span).map((point) => ({ period: point.period, NI: point.netIncome }))}
-              series={[{ key: "NI", name: "Net income", color: PALETTE[index % PALETTE.length] }]}
+              series={[{ key: "NI", name: "Net income", color: palette[index % palette.length] }]}
             />
           </Panel>
         ))}
@@ -190,6 +191,7 @@ function StatementLines({ rows, note }: { rows: [string, number, number?][]; not
 
 export function RevenueDesk({ companyId, embedded = false }: { companyId?: string; embedded?: boolean }) {
   const book = usePortfolio()
+  const palette = usePalette()
   const { span, setSpan } = useSpan()
   const [productOpen, setProductOpen] = useState(false)
   const [dealOpen, setDealOpen] = useState(false)
@@ -213,7 +215,7 @@ export function RevenueDesk({ companyId, embedded = false }: { companyId?: strin
   const series = (companyId ? lines.map((line) => line.name) : companies.map((company) => company.name)).map((name, index) => ({
     key: name,
     name,
-    color: PALETTE[index % PALETTE.length],
+    color: palette[index % palette.length],
   }))
   const invoices = book.invoices.filter((invoice) => ids.has(invoice.companyId) && invoice.status !== "draft")
   const byCustomer = new Map<string, number>()
@@ -241,10 +243,10 @@ export function RevenueDesk({ companyId, embedded = false }: { companyId?: strin
             {series.length === 0 ? <Empty>No product lines yet.</Empty> : <TermStacked area data={stacked} series={series} />}
           </Panel>
           <Panel title="Customer concentration">
-            <TermHBar data={concentration} color="#6ea8fe" />
+            <TermHBar data={concentration} color={palette[3]} />
           </Panel>
           <Panel title="Pipeline by stage">
-            <TermHBar data={pipeline} color="#f5a524" />
+            <TermHBar data={pipeline} color={palette[0]} />
           </Panel>
         </div>
       </div>
@@ -256,6 +258,7 @@ export function RevenueDesk({ companyId, embedded = false }: { companyId?: strin
 
 export function ReceivablesDesk({ companyId, embedded = false }: { companyId?: string; embedded?: boolean }) {
   const book = usePortfolio()
+  const palette = usePalette()
   const removeInvoice = usePortfolio((state) => state.deleteInvoice)
   const removeCustomer = usePortfolio((state) => state.deleteCustomer)
   const [invoiceOpen, setInvoiceOpen] = useState(false)
@@ -280,7 +283,7 @@ export function ReceivablesDesk({ companyId, embedded = false }: { companyId?: s
           </div>
         ) : null}
         <Panel title={`Aging · ${money(buckets.total)} open`}>
-          <TermHBar data={data} color="#ff5d5d" />
+          <TermHBar data={data} color={palette[4]} />
         </Panel>
         <Panel title="Invoices" bodyClassName="p-0">
           <TermTable
@@ -322,6 +325,7 @@ export function ReceivablesDesk({ companyId, embedded = false }: { companyId?: s
 
 export function PayablesDesk({ companyId, embedded = false }: { companyId?: string; embedded?: boolean }) {
   const book = usePortfolio()
+  const palette = usePalette()
   const removeBill = usePortfolio((state) => state.deleteBill)
   const removeVendor = usePortfolio((state) => state.deleteVendor)
   const [billOpen, setBillOpen] = useState(false)
@@ -343,7 +347,7 @@ export function PayablesDesk({ companyId, embedded = false }: { companyId?: stri
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? <div className="flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => setVendorOpen(true)}>Add vendor</Button><Button size="sm" onClick={() => setBillOpen(true)}>Add bill</Button></div> : null}
         <div className="grid gap-2 xl:grid-cols-2">
-          <Panel title="Bill aging"><TermHBar data={[{ name: "Current", value: buckets.current }, { name: "1–30", value: buckets.d30 }, { name: "31–60", value: buckets.d60 }, { name: "61+", value: buckets.d61 }]} color="#8aa0b4" /></Panel>
+          <Panel title="Bill aging"><TermHBar data={[{ name: "Current", value: buckets.current }, { name: "1–30", value: buckets.d30 }, { name: "31–60", value: buckets.d60 }, { name: "61+", value: buckets.d61 }]} color={palette[2]} /></Panel>
           <Panel title="Cost by category"><TermHBar data={byCategory} /></Panel>
         </div>
         <Panel title="Bills" bodyClassName="p-0">
@@ -385,6 +389,7 @@ export function PayablesDesk({ companyId, embedded = false }: { companyId?: stri
 
 export function TreasuryDesk({ companyId, embedded = false }: { companyId?: string; embedded?: boolean }) {
   const book = usePortfolio()
+  const palette = usePalette()
   const [open, setOpen] = useState(false)
   const companies = book.companies.filter((company) => !companyId || company.id === companyId)
   const ids = new Set(companies.map((company) => company.id))
@@ -419,8 +424,8 @@ export function TreasuryDesk({ companyId, embedded = false }: { companyId?: stri
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? <div className="flex justify-end"><Button size="sm" onClick={() => setOpen(true)}>Add account</Button></div> : null}
         <div className="grid gap-2 xl:grid-cols-2">
-          <Panel title="Cash by company"><TermHBar data={byCompany} color="#6ea8fe" /></Panel>
-          <Panel title="Runway where there is burn"><TermHBar data={runwayBars} moneyAxis={false} color="#ff5d5d" /></Panel>
+          <Panel title="Cash by company"><TermHBar data={byCompany} color={palette[3]} /></Panel>
+          <Panel title="Runway where there is burn"><TermHBar data={runwayBars} moneyAxis={false} color={palette[4]} /></Panel>
         </div>
         <Panel title="Accounts" bodyClassName="p-0">
           <TermTable

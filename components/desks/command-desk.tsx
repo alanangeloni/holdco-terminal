@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { PALETTE, Spark, TermArea, TermBars, TermHBar, TermLine, TermStacked } from "@/components/charts/charts"
+import { Spark, TermArea, TermBars, TermHBar, TermLine, TermStacked, usePalette } from "@/components/charts/charts"
 import { Empty, PageHead, Panel } from "@/components/terminal/kit"
 import { Lattice } from "@/components/desks/shared"
 import { deriveAlerts } from "@/lib/alerts"
@@ -16,6 +16,7 @@ import { SpanToggle } from "@/components/terminal/kit"
 
 export function CommandDesk() {
   const book = usePortfolio()
+  const palette = usePalette()
   const [span, setSpan] = useState<Span>("12M")
   const companies = book.companies
   const snap = snapshotFor(book, companies, "full")
@@ -55,20 +56,20 @@ export function CommandDesk() {
               dual
               data={line}
               series={[
-                { key: "Revenue", name: "Revenue", color: PALETTE[0] },
-                { key: "Net income", name: "Net income", color: PALETTE[1] },
+                { key: "Revenue", name: "Revenue", color: palette[0] },
+                { key: "Net income", name: "Net income", color: palette[1] },
               ]}
             />
           </Panel>
           <Panel title="Cash">
-            <TermArea data={series.map((point) => ({ period: point.period, cash: point.cash }))} dataKey="cash" name="Cash" color="#6ea8fe" />
+            <TermArea data={series.map((point) => ({ period: point.period, cash: point.cash }))} dataKey="cash" name="Cash" color={palette[3]} />
           </Panel>
           <Panel title="Revenue versus budget">
             <TermBars
               data={budget}
               series={[
-                { key: "Actual", name: "Actual", color: PALETTE[0] },
-                { key: "Budget", name: "Budget", color: PALETTE[2] },
+                { key: "Actual", name: "Actual", color: palette[0] },
+                { key: "Budget", name: "Budget", color: palette[2] },
               ]}
             />
           </Panel>
@@ -76,11 +77,11 @@ export function CommandDesk() {
             <TermStacked
               data={costs}
               series={[
-                { key: "COGS", name: "COGS", color: "#8aa0b4" },
-                { key: "Payroll", name: "Payroll", color: "#f5a524" },
-                { key: "Marketing", name: "Marketing", color: "#6ea8fe" },
-                { key: "G&A", name: "G&A", color: "#d6d3d1" },
-                { key: "Other", name: "Other", color: "#5c6b7a" },
+                { key: "COGS", name: "COGS", color: palette[2] },
+                { key: "Payroll", name: "Payroll", color: palette[0] },
+                { key: "Marketing", name: "Marketing", color: palette[3] },
+                { key: "G&A", name: "G&A", color: palette[5] },
+                { key: "Other", name: "Other", color: palette[6] },
               ]}
             />
           </Panel>
@@ -91,7 +92,7 @@ export function CommandDesk() {
             {alerts.length === 0 ? <Empty>No alerts on this close.</Empty> : null}
             <div className="flex flex-col">
               {alerts.slice(0, 6).map((alert) => (
-                <Link key={alert.id} href={alert.href} className="flex items-start justify-between gap-3 border-b border-border/70 py-1.5 text-xs hover:bg-white/3">
+                <Link key={alert.id} href={alert.href} className="flex items-start justify-between gap-3 border-b border-border/70 py-1.5 text-xs hover:bg-muted">
                   <span>
                     <span className={alert.severity === "high" ? "text-down" : "text-amber"}>{alert.severity === "high" ? "HIGH" : "WATCH"}</span>
                     <span className="mx-2 text-muted-foreground">{alert.companyName}</span>

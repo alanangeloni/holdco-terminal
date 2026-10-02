@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Fragment, useState } from "react"
-import { PALETTE, TermHBar, TermLine } from "@/components/charts/charts"
+import { TermHBar, TermLine, usePalette } from "@/components/charts/charts"
 import { EventDialog, KpiDialog, RiskDialog } from "@/components/dialogs/editors"
 import { Button } from "@/components/ui/button"
 import { Empty, Num, PageHead, Panel, SpanToggle, TermTable } from "@/components/terminal/kit"
@@ -151,7 +151,7 @@ export function AlertsDesk() {
         {groups.map((companyId) => (
           <Panel key={companyId} title={book.companies.find((company) => company.id === companyId)?.name ?? "Company"}>
             {alerts.filter((alert) => alert.companyId === companyId).map((alert) => (
-              <Link key={alert.id} href={alert.href} className="block border-b border-border/70 py-2 text-xs hover:bg-white/3">
+              <Link key={alert.id} href={alert.href} className="block border-b border-border/70 py-2 text-xs hover:bg-muted">
                 <div className={alert.severity === "high" ? "text-down" : "text-amber"}>{alert.severity.toUpperCase()} · {alert.title}</div>
                 <div className="text-muted-foreground">{alert.detail}</div>
               </Link>
@@ -297,6 +297,7 @@ export function ReportsDesk() {
 
 export function HoldcoDesk({ id }: { id: string }) {
   const book = usePortfolio()
+  const palette = usePalette()
   const [mode, setMode] = useState<ConsolidationMode>("full")
   const [span, setSpan] = useState<Span>("12M")
   const holdco = book.holdcos.find((item) => item.id === id)
@@ -342,10 +343,10 @@ export function HoldcoDesk({ id }: { id: string }) {
         <Lattice snap={snap} />
         <div className="grid gap-2 xl:grid-cols-2">
           <Panel title="Consolidated revenue and net income">
-            <TermLine dual data={series.map((point) => ({ period: point.period, Revenue: point.revenue, "Net income": point.netIncome }))} series={[{ key: "Revenue", name: "Revenue", color: PALETTE[0] }, { key: "Net income", name: "Net income", color: PALETTE[1] }]} />
+            <TermLine dual data={series.map((point) => ({ period: point.period, Revenue: point.revenue, "Net income": point.netIncome }))} series={[{ key: "Revenue", name: "Revenue", color: palette[0] }, { key: "Net income", name: "Net income", color: palette[1] }]} />
           </Panel>
           <Panel title="Net income by company">
-            <TermLine data={lines} series={companies.map((company, index) => ({ key: company.name, name: company.name, color: PALETTE[index % PALETTE.length] }))} />
+            <TermLine data={lines} series={companies.map((company, index) => ({ key: company.name, name: company.name, color: palette[index % palette.length] }))} />
           </Panel>
           <Panel title="Revenue contribution">
             <TermHBar data={companies.map((company) => ({ name: company.name, value: (statementAt(book.statements, company.id, book.asOf)?.revenue ?? 0) * (mode === "weighted" ? company.ownershipPct / 100 : 1) }))} />
@@ -354,7 +355,7 @@ export function HoldcoDesk({ id }: { id: string }) {
             <TermHBar data={Object.entries(book.assets.filter((asset) => companies.some((company) => company.id === asset.companyId)).reduce<Record<string, number>>((acc, asset) => {
               acc[asset.category] = (acc[asset.category] ?? 0) + asset.bookValue
               return acc
-            }, {})).map(([name, value]) => ({ name: name.replace("_", " "), value }))} color="#8aa0b4" />
+            }, {})).map(([name, value]) => ({ name: name.replace("_", " "), value }))} color={palette[2]} />
           </Panel>
         </div>
         <Panel title="Ownership" bodyClassName="p-0">

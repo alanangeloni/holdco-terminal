@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { PALETTE, TermHBar, TermLine, TermStacked } from "@/components/charts/charts"
+import { TermHBar, TermLine, TermStacked, usePalette } from "@/components/charts/charts"
 import { AssetDialog, ConfirmDialog, PersonDialog, PostDialog, WikiDialog, WorkDialog } from "@/components/dialogs/editors"
 import { Button } from "@/components/ui/button"
 import { Empty, MiniActions, Num, PageHead, Panel, SpanToggle, TermTable } from "@/components/terminal/kit"
@@ -14,16 +14,17 @@ import type { AssetCategory, Span, WorkStatus } from "@/lib/types"
 import { PLATFORMS } from "@/lib/types"
 import { seriesFor, snapshotFor } from "@/lib/view"
 
-const COST_SERIES = [
-  { key: "Organic", name: "Organic", color: "#3dd68c" },
-  { key: "Paid", name: "Paid", color: "#f5a524" },
-  { key: "Direct", name: "Direct", color: "#8aa0b4" },
-  { key: "Referral", name: "Referral", color: "#6ea8fe" },
-  { key: "Social", name: "Social", color: "#d6d3d1" },
+const CHANNEL_SLOTS = [
+  { key: "Organic", name: "Organic", slot: 1 },
+  { key: "Paid", name: "Paid", slot: 0 },
+  { key: "Direct", name: "Direct", slot: 2 },
+  { key: "Referral", name: "Referral", slot: 3 },
+  { key: "Social", name: "Social", slot: 5 },
 ]
 
 export function AudienceDesk({ companyId, embedded = false }: { companyId?: string; embedded?: boolean }) {
   const book = usePortfolio()
+  const palette = usePalette()
   const [span, setSpan] = useState<Span>("12M")
   const [open, setOpen] = useState(false)
   const companies = book.companies.filter((company) => !companyId || company.id === companyId)
@@ -64,16 +65,16 @@ export function AudienceDesk({ companyId, embedded = false }: { companyId?: stri
         </div>
         <div className="grid gap-2 xl:grid-cols-2">
           <Panel title="Sessions and users">
-            <TermLine data={series.map((point) => ({ period: point.period, Sessions: point.sessions, Users: point.users }))} series={[{ key: "Sessions", name: "Sessions", color: PALETTE[0] }, { key: "Users", name: "Users", color: PALETTE[3] }]} />
+            <TermLine data={series.map((point) => ({ period: point.period, Sessions: point.sessions, Users: point.users }))} series={[{ key: "Sessions", name: "Sessions", color: palette[0] }, { key: "Users", name: "Users", color: palette[3] }]} />
           </Panel>
           <Panel title="Channel mix">
-            <TermStacked data={channels} series={COST_SERIES} />
+            <TermStacked data={channels} series={CHANNEL_SLOTS.map((item) => ({ key: item.key, name: item.name, color: palette[item.slot] }))} />
           </Panel>
           <Panel title="Funnel">
-            <TermHBar data={funnel} moneyAxis={false} color="#6ea8fe" />
+            <TermHBar data={funnel} moneyAxis={false} color={palette[3]} />
           </Panel>
           <Panel title="Followers">
-            <TermLine data={social} series={PLATFORMS.map((platform, index) => ({ key: platform, name: platform, color: PALETTE[index] }))} />
+            <TermLine data={social} series={PLATFORMS.map((platform, index) => ({ key: platform, name: platform, color: palette[index % palette.length] }))} />
           </Panel>
         </div>
         <Panel title="Posts" bodyClassName="p-0">

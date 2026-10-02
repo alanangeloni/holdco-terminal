@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Spark } from "@/components/charts/charts"
+import { Spark, usePalette } from "@/components/charts/charts"
 import { CompanyDialog, ConfirmDialog, HoldcoDialog } from "@/components/dialogs/editors"
 import { Button } from "@/components/ui/button"
 import { Empty, PageHead } from "@/components/terminal/kit"
@@ -18,6 +18,7 @@ function CompanyRow({ company, depth, compact }: { company: Company; depth: numb
   const statement = statementAt(book.statements, company.id, book.asOf)
   const pnl = statement ? derivePnl(statement) : null
   const months = runway(book.statements, company.id, book.asOf)
+  const palette = usePalette()
   const alert = deriveAlerts(book, todayISO()).some((item) => item.companyId === company.id)
   const children = book.companies.filter((item) => item.parentCompanyId === company.id)
   return (
@@ -30,7 +31,7 @@ function CompanyRow({ company, depth, compact }: { company: Company; depth: numb
         <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">{company.ownershipPct}%</span>
         {!compact ? <span className="hidden font-mono text-[10px] text-steel md:inline">{pnl ? pct(pnl.netMargin) : "—"}</span> : null}
         <span className="hidden font-mono text-[10px] text-muted-foreground lg:inline">{months === null ? "n/m" : `${months.toFixed(1)} mo`}</span>
-        <Spark data={sparkline(book, company.id)} color={pnl && pnl.netIncome < 0 ? "#ff5d5d" : "#3dd68c"} />
+        <Spark data={sparkline(book, company.id)} color={pnl && pnl.netIncome < 0 ? palette[4] : palette[1]} />
       </div>
       {children.map((child) => (
         <CompanyRow key={child.id} company={child} depth={depth + 1} compact={compact} />
@@ -50,7 +51,7 @@ export function HoldingsTree({ compact = false }: { compact?: boolean }) {
         const roots = book.companies.filter((company) => company.holdcoId === holdco.id && !company.parentCompanyId)
         return (
           <div key={holdco.id}>
-            <Link href={`/holdings/${holdco.id}`} className="flex items-center justify-between border-b border-border bg-white/3 px-2 py-1.5 text-xs hover:text-amber">
+            <Link href={`/holdings/${holdco.id}`} className="flex items-center justify-between border-b border-border bg-muted px-2 py-1.5 text-xs hover:text-amber">
               <span className="font-medium tracking-wide uppercase">{holdco.name}</span>
               <span className="font-mono text-[10px] text-muted-foreground">{roots.length} companies</span>
             </Link>
@@ -61,7 +62,7 @@ export function HoldingsTree({ compact = false }: { compact?: boolean }) {
           </div>
         )
       })}
-      <div className="border-b border-border bg-white/3 px-2 py-1.5 text-xs tracking-wide uppercase">Standalone</div>
+      <div className="border-b border-border bg-muted px-2 py-1.5 text-xs tracking-wide uppercase">Standalone</div>
       {book.companies.filter((company) => !company.holdcoId).length === 0 ? <Empty>No standalone companies.</Empty> : null}
       {book.companies
         .filter((company) => !company.holdcoId && !company.parentCompanyId)
