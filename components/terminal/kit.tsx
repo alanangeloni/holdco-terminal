@@ -83,7 +83,7 @@ export function SpanToggle({ value, onChange }: { value: Span; onChange: (span: 
   const spans: Span[] = ["1M", "Q", "3M", "6M", "12M", "ALL"]
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-wrap border border-border">
+      <div className="span-toggle flex flex-wrap border border-border">
         {spans.map((span) => (
           <button
             key={span}

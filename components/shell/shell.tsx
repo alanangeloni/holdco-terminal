@@ -31,12 +31,9 @@ import {
   parseStyleSnapshot,
   readStored,
   STYLE_SERVER_SNAPSHOT,
-  STYLES,
   styleSnapshot,
   subscribeStyle,
-  writeStyle,
-  type ModeId,
-  type StyleId,
+  wordmarkFor,
 } from "@/lib/style"
 
 function useHoldcoStyle() {
@@ -73,59 +70,6 @@ function RailLinks({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       ))}
     </nav>
-  )
-}
-
-function StyleSection({
-  style,
-  mode,
-  onStyle,
-  onMode,
-}: {
-  style: StyleId
-  mode: ModeId
-  onStyle: (style: StyleId) => void
-  onMode: (mode: ModeId) => void
-}) {
-  return (
-    <div className="style-section no-print border-t border-border px-2 py-2">
-      <div className="px-2 pb-1 text-[10px] tracking-[0.16em] text-muted-foreground uppercase">Styles</div>
-      {STYLES.map((item) => {
-        const on = style === item.id
-        return (
-          <button
-            key={item.id}
-            type="button"
-            data-active={on ? "true" : "false"}
-            aria-pressed={on}
-            onClick={() => onStyle(item.id)}
-            className={`rail-link flex w-full items-center gap-2 px-2 py-1 text-left text-xs ${on ? "bg-amber/15 text-amber" : "text-foreground/80 hover:bg-accent"}`}
-          >
-            <span className="w-8 font-mono text-[10px] text-amber">{item.code}</span>
-            <span>{item.label}</span>
-          </button>
-        )
-      })}
-      {style === "cash" ? (
-        <div className="mt-1 flex gap-1 px-2">
-          {(["light", "dark"] as const).map((item) => {
-            const on = mode === item
-            return (
-              <button
-                key={item}
-                type="button"
-                data-active={on ? "true" : "false"}
-                aria-pressed={on}
-                onClick={() => onMode(item)}
-                className={`rail-link flex-1 px-2 py-1 text-xs capitalize ${on ? "bg-amber/15 text-amber" : "text-foreground/80 hover:bg-accent"}`}
-              >
-                {item}
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
-    </div>
   )
 }
 
@@ -201,7 +145,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <Menu />
         </Button>
         <div className="min-w-0">
-          <div className="wordmark font-mono text-[11px] tracking-[0.18em] text-amber">{style === "cash" ? "Holdco" : style === "journal" ? "Holdco" : "HOLDCO TERMINAL"}</div>
+          <div className="wordmark font-mono text-[11px] tracking-[0.18em] text-amber">{wordmarkFor(style)}</div>
           <div className="truncate text-[10px] text-muted-foreground">{book.holdcos[0]?.legalName ?? "Portfolio"}</div>
         </div>
         <div className="ml-2 hidden min-w-0 flex-1 overflow-hidden md:block">
@@ -235,16 +179,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside className="no-print hidden w-52 shrink-0 flex-col border-r border-border bg-sidebar lg:flex">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <RailLinks />
-          </div>
-          <StyleSection
-            style={style}
-            mode={mode}
-            onStyle={(next) => writeStyle(next, mode)}
-            onMode={(next) => writeStyle(style, next)}
-          />
+        <aside className="no-print hidden w-52 shrink-0 overflow-y-auto border-r border-border bg-sidebar lg:block">
+          <RailLinks />
         </aside>
         <main className="min-w-0 flex-1 overflow-auto">{children}</main>
       </div>
@@ -271,12 +207,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="min-h-0 flex-1 overflow-y-auto">
             <RailLinks onNavigate={() => setMenu(false)} />
           </div>
-          <StyleSection
-            style={style}
-            mode={mode}
-            onStyle={(next) => writeStyle(next, mode)}
-            onMode={(next) => writeStyle(style, next)}
-          />
         </SheetContent>
       </Sheet>
 

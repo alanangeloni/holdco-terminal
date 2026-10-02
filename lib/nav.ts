@@ -43,6 +43,10 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/reports", code: "RPT", label: "Board pack" },
     ],
   },
+  {
+    group: "Look",
+    items: [{ href: "/styles", code: "STL", label: "Styles" }],
+  },
 ]
 
 export function navActive(pathname: string, href: string) {

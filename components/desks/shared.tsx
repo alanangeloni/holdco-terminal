@@ -24,7 +24,7 @@ export function Lattice({ snap }: { snap: Snapshot }) {
     { label: "HEADCOUNT", value: <span className="font-mono">{snap.headcount}</span> },
   ]
   return (
-    <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3 lg:grid-cols-5">
+    <div className="lattice grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3 lg:grid-cols-5">
       {cells.map((cell) => (
         <div key={cell.label} className="bg-card px-2.5 py-2">
           <div className="text-[10px] tracking-[0.14em] text-amber uppercase">{cell.label}</div>
