@@ -7,10 +7,11 @@ import { CompanyDialog, ConfirmDialog, HoldcoDialog } from "@/components/dialogs
 import { Button } from "@/components/ui/button"
 import { Empty, PageHead } from "@/components/terminal/kit"
 import { deriveAlerts } from "@/lib/alerts"
+import { HEALTH_LABEL, HEALTH_ORDER, compareHealth } from "@/lib/capital"
 import { pct, todayISO } from "@/lib/format"
 import { derivePnl, runway, statementAt } from "@/lib/metrics"
 import { usePortfolio } from "@/lib/store"
-import type { Company, HoldingCompany } from "@/lib/types"
+import type { Company, HealthTier, HoldingCompany } from "@/lib/types"
 import { sparkline } from "@/lib/view"
 
 function CompanyRow({ company, depth, compact }: { company: Company; depth: number; compact?: boolean }) {
@@ -29,7 +30,11 @@ function CompanyRow({ company, depth, compact }: { company: Company; depth: numb
           {company.name}
         </Link>
         <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">{company.ownershipPct}%</span>
-        {!compact ? <span className="hidden font-mono text-[10px] text-steel md:inline">{pnl ? pct(pnl.netMargin) : "—"}</span> : null}
+        <span className="hidden font-mono text-[10px] text-muted-foreground md:inline">{HEALTH_LABEL[company.health]}</span>
+        {company.marketplace ? (
+          <span className="hidden font-mono text-[10px] text-steel lg:inline">{company.marketplace.liveListings}/{company.marketplace.listingGoal} lst</span>
+        ) : null}
+        {!compact ? <span className="hidden font-mono text-[10px] text-steel xl:inline">{pnl ? pct(pnl.netMargin) : "—"}</span> : null}
         <span className="hidden font-mono text-[10px] text-muted-foreground lg:inline">{months === null ? "n/m" : `${months.toFixed(1)} mo`}</span>
         <Spark data={sparkline(book, company.id)} color={pnl && pnl.netIncome < 0 ? palette[4] : palette[1]} />
       </div>
@@ -82,6 +87,9 @@ export function HoldingsDesk() {
   const [preset, setPreset] = useState<Partial<Company> | null>(null)
   const [editHoldco, setEditHoldco] = useState<HoldingCompany | null>(null)
   const [confirm, setConfirm] = useState<{ title: string; body: string; run: () => void } | null>(null)
+  const [health, setHealth] = useState<HealthTier | "all">("all")
+  const matches = (company: Company) => health === "all" || company.health === health
+  const listed = book.companies.filter(matches).sort((a, b) => compareHealth(a.health, b.health) || a.name.localeCompare(b.name))
 
   return (
     <div>
@@ -99,6 +107,12 @@ export function HoldingsDesk() {
         }
       />
       <div className="grid gap-2 p-2 lg:p-3">
+        <div className="flex flex-wrap gap-1">
+          <FilterChip on={health === "all"} onClick={() => setHealth("all")} label="All" />
+          {HEALTH_ORDER.map((tier) => (
+            <FilterChip key={tier} on={health === tier} onClick={() => setHealth(tier)} label={HEALTH_LABEL[tier]} />
+          ))}
+        </div>
         {book.holdcos.map((holdco) => (
           <section key={holdco.id} className="border border-border bg-card">
             <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-2.5 py-1.5">
@@ -125,11 +139,11 @@ export function HoldingsDesk() {
                 </Button>
               </div>
             </header>
-            {book.companies.filter((company) => company.holdcoId === holdco.id && !company.parentCompanyId).length === 0 ? (
-              <Empty>No subsidiaries yet.</Empty>
+            {book.companies.filter((company) => company.holdcoId === holdco.id && !company.parentCompanyId && matches(company)).length === 0 ? (
+              <Empty>{health === "all" ? "No subsidiaries yet." : "No companies in this tier."}</Empty>
             ) : null}
             {book.companies
-              .filter((company) => company.holdcoId === holdco.id && !company.parentCompanyId)
+              .filter((company) => company.holdcoId === holdco.id && !company.parentCompanyId && matches(company))
               .map((company) => (
                 <CompanyRow key={company.id} company={company} depth={0} />
               ))}
@@ -142,9 +156,9 @@ export function HoldingsDesk() {
         ) : null}
         <section className="border border-border bg-card">
           <header className="border-b border-border px-2.5 py-1.5 text-[11px] tracking-[0.16em] text-amber uppercase">Standalone</header>
-          {book.companies.filter((company) => !company.holdcoId && !company.parentCompanyId).length === 0 ? <Empty>No standalone companies.</Empty> : null}
+          {book.companies.filter((company) => !company.holdcoId && !company.parentCompanyId && matches(company)).length === 0 ? <Empty>{health === "all" ? "No standalone companies." : "No companies in this tier."}</Empty> : null}
           {book.companies
-            .filter((company) => !company.holdcoId && !company.parentCompanyId)
+            .filter((company) => !company.holdcoId && !company.parentCompanyId && matches(company))
             .map((company) => (
               <CompanyRow key={company.id} company={company} depth={0} />
             ))}
@@ -157,15 +171,16 @@ export function HoldingsDesk() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[10px] tracking-wider text-amber uppercase">
-                  {["Company", "Holdco", "Model", "Own", ""].map((header) => (
+                  {["Company", "Health", "Holdco", "Model", "Own", ""].map((header) => (
                     <th key={header || "act"} className="border-b border-border px-2 py-1.5 font-medium">{header}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {book.companies.map((company) => (
+                {listed.map((company) => (
                   <tr key={company.id} className="border-b border-border/70">
                     <td className="px-2 py-1.5"><Link className="hover:text-amber" href={`/companies/${company.id}`}>{company.name}</Link></td>
+                    <td className="px-2 py-1.5 font-mono text-[10px]">{HEALTH_LABEL[company.health]}</td>
                     <td className="px-2 py-1.5 text-muted-foreground">{book.holdcos.find((holdco) => holdco.id === company.holdcoId)?.name ?? "Standalone"}</td>
                     <td className="px-2 py-1.5 font-mono text-[10px]">{company.businessModel}</td>
                     <td className="px-2 py-1.5 font-mono">{company.ownershipPct}%</td>
@@ -202,4 +217,8 @@ export function HoldingsDesk() {
       />
     </div>
   )
+}
+
+function FilterChip({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
+  return <button type="button" onClick={onClick} className={`border border-border px-2 py-1 font-mono text-[10px] tracking-wider uppercase ${on ? "bg-amber text-primary-foreground" : "text-muted-foreground"}`}>{label}</button>
 }

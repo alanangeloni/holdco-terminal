@@ -6,8 +6,9 @@ import { Spark, TermArea, TermBars, TermHBar, TermLine, TermStacked, usePalette 
 import { Empty, PageHead, Panel } from "@/components/terminal/kit"
 import { Lattice } from "@/components/desks/shared"
 import { deriveAlerts } from "@/lib/alerts"
+import { HEALTH_LABEL, openAsks } from "@/lib/capital"
 import { derivePnl, statementAt } from "@/lib/metrics"
-import { monthLabel, pct, todayISO } from "@/lib/format"
+import { money, monthLabel, pct, todayISO } from "@/lib/format"
 import { usePortfolio } from "@/lib/store"
 import type { Span } from "@/lib/types"
 import { seriesFor, snapshotFor, sparkline } from "@/lib/view"
@@ -49,6 +50,12 @@ export function CommandDesk() {
         actions={<SpanToggle value={span} onChange={setSpan} />}
       />
       <div className="grid gap-2 p-2 lg:p-3">
+        <Link href="/capital" className="flex flex-wrap items-center gap-x-4 gap-y-1 border border-border bg-card px-2.5 py-2 text-xs hover:text-amber">
+          <span className="text-[10px] tracking-[0.16em] text-amber uppercase">Capital</span>
+          <span>Dry powder {money(book.capital.deployableCash)}</span>
+          <span>#1 {book.companies.find((company) => company.id === book.capital.priorityCompanyId)?.name ?? "None"}</span>
+          <span>{openAsks(book.asks).length} open</span>
+        </Link>
         <Lattice snap={snap} />
         <div className="grid gap-2 xl:grid-cols-2">
           <Panel title="Revenue and net income">
@@ -128,7 +135,7 @@ export function CommandDesk() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[10px] tracking-wider text-amber uppercase">
-                  {["Company", "Revenue", "Margin", "Net", "12M"].map((header) => (
+                  {["Company", "Health", "Revenue", "Margin", "Net", "12M"].map((header) => (
                     <th key={header} className="border-b border-border px-2 py-1.5 font-medium">{header}</th>
                   ))}
                 </tr>
@@ -140,6 +147,7 @@ export function CommandDesk() {
                   return (
                     <tr key={company.id} className="border-b border-border/70">
                       <td className="px-2 py-1.5"><Link className="hover:text-amber" href={`/companies/${company.id}`}>{company.name}</Link></td>
+                      <td className="px-2 py-1.5 font-mono text-[10px]">{HEALTH_LABEL[company.health]}</td>
                       <td className="px-2 py-1.5 font-mono">{pnl ? pnl.revenue.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }) : "—"}</td>
                       <td className="px-2 py-1.5 font-mono">{pnl ? pct(pnl.grossMargin) : "—"}</td>
                       <td className={`px-2 py-1.5 font-mono ${pnl && pnl.netIncome < 0 ? "text-down" : "text-up"}`}>{pnl ? pnl.netIncome.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }) : "—"}</td>

@@ -13,28 +13,39 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { HEALTH_LABEL, RECOMMENDATION_LABEL, STAGE_LABEL, CONFIDENCE_LABEL } from "@/lib/capital"
+import { todayISO } from "@/lib/format"
 import { cloneStatement, emptySocialBook, plugEquity, shiftPeriod } from "@/lib/metrics"
 import { usePortfolio } from "@/lib/store"
 import type {
+  AskKind,
+  AskStatus,
   Asset,
   AssetCategory,
   BankAccount,
   Bill,
   BusinessModel,
+  CapitalAsk,
   Company,
   CompanyStatus,
+  Confidence,
   CorporateEvent,
   Customer,
   Deal,
   DocStatus,
   EntityType,
   EventKind,
+  HealthTier,
   HoldingCompany,
+  Idea,
+  IdeaStage,
   Invoice,
+  MarketplaceProfile,
   MonthlyStatement,
   PersonOrAgent,
   Platform,
   ProductLine,
+  Recommendation,
   Risk,
   SocialPost,
   Vendor,
@@ -154,6 +165,12 @@ const STATUSES: { value: CompanyStatus; label: string }[] = [
   { value: "operating", label: "Operating" },
   { value: "dormant", label: "Dormant" },
   { value: "exited", label: "Exited" },
+]
+const HEALTHS: { value: HealthTier; label: string }[] = [
+  { value: "grow", label: HEALTH_LABEL.grow },
+  { value: "hold", label: HEALTH_LABEL.hold },
+  { value: "fix", label: HEALTH_LABEL.fix },
+  { value: "stop", label: HEALTH_LABEL.stop },
 ]
 const DOC: { value: DocStatus; label: string }[] = [
   { value: "draft", label: "Draft" },
@@ -329,6 +346,7 @@ function CompanyForm({
   const [industry, setIndustry] = useState(initial?.industry ?? "")
   const [businessModel, setBusinessModel] = useState<BusinessModel>(initial?.businessModel ?? "services")
   const [status, setStatus] = useState<CompanyStatus>(initial?.status ?? "operating")
+  const [health, setHealth] = useState<HealthTier>(initial?.health ?? "hold")
   const [hq, setHq] = useState(initial?.hq ?? "")
   const [website, setWebsite] = useState(initial?.website ?? "")
   const [ownershipPct, setOwnershipPct] = useState(String(initial?.ownershipPct ?? 100))
@@ -354,12 +372,14 @@ function CompanyForm({
           industry,
           businessModel,
           status,
+          health,
           hq,
           website,
           ownershipPct: n(ownershipPct),
           entityType,
           founded,
           description,
+          marketplace: initial?.marketplace ?? null,
           officers: officers
             .split("\n")
             .map((line) => line.trim())
@@ -394,6 +414,9 @@ function CompanyForm({
         </Field>
         <Field label="Status">
           <Choose value={status} onChange={(value) => setStatus(value as CompanyStatus)} options={STATUSES} />
+        </Field>
+        <Field label="Health">
+          <Choose value={health} onChange={(value) => setHealth(value as HealthTier)} options={HEALTHS} />
         </Field>
         <Field label="Entity">
           <Choose value={entityType} onChange={(value) => setEntityType(value as EntityType)} options={ENTITIES} />
@@ -1316,5 +1339,364 @@ export function RiskDialog({ open, onOpenChange, companyId }: { open: boolean; o
         </Field>
       </EditorFrame>
     </Dialog>
+  )
+}
+
+const RECS: { value: Recommendation; label: string }[] = [
+  { value: "do", label: RECOMMENDATION_LABEL.do },
+  { value: "dont", label: RECOMMENDATION_LABEL.dont },
+  { value: "park", label: RECOMMENDATION_LABEL.park },
+  { value: "soft_yes", label: RECOMMENDATION_LABEL.soft_yes },
+]
+const CONFIDENCE: { value: Confidence; label: string }[] = [
+  { value: "low", label: CONFIDENCE_LABEL.low },
+  { value: "medium", label: CONFIDENCE_LABEL.medium },
+  { value: "high", label: CONFIDENCE_LABEL.high },
+]
+const ASK_STATUS: { value: AskStatus; label: string }[] = [
+  { value: "open", label: "Open" },
+  { value: "decided", label: "Decided" },
+  { value: "parked", label: "Parked" },
+]
+const STAGES: { value: IdeaStage; label: string }[] = [
+  { value: "research", label: STAGE_LABEL.research },
+  { value: "weak", label: STAGE_LABEL.weak },
+  { value: "parked", label: STAGE_LABEL.parked },
+  { value: "greenlit", label: STAGE_LABEL.greenlit },
+]
+
+export function AskDialog({
+  open,
+  onOpenChange,
+  initial,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  initial?: CapitalAsk | null
+}) {
+  const add = usePortfolio((state) => state.addAsk)
+  const update = usePortfolio((state) => state.updateAsk)
+  if (!open) return null
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <AskForm
+        initial={initial}
+        onClose={() => onOpenChange(false)}
+        onSave={(input) => {
+          if (initial?.id) update(initial.id, input)
+          else add(input)
+          onOpenChange(false)
+        }}
+      />
+    </Dialog>
+  )
+}
+
+function AskForm({
+  initial,
+  onClose,
+  onSave,
+}: {
+  initial?: CapitalAsk | null
+  onClose: () => void
+  onSave: (input: Omit<CapitalAsk, "id">) => void
+}) {
+  const companies = usePortfolio((state) => state.companies)
+  const ideas = usePortfolio((state) => state.ideas)
+  const sealed = initial?.status === "decided" || initial?.status === "parked"
+  const [subjectKind, setSubjectKind] = useState(initial?.ideaId ? "idea" : "company")
+  const [companyId, setCompanyId] = useState(initial?.companyId ?? companies[0]?.id ?? "none")
+  const [ideaId, setIdeaId] = useState(initial?.ideaId ?? ideas[0]?.id ?? "none")
+  const [title, setTitle] = useState(initial?.title ?? "")
+  const [kind, setKind] = useState<AskKind>(initial?.kind ?? "cash")
+  const [cashAmount, setCashAmount] = useState(initial?.cashAmount != null ? String(initial.cashAmount) : "")
+  const [recommendation, setRecommendation] = useState<Recommendation>(initial?.recommendation ?? "do")
+  const [conditions, setConditions] = useState(initial?.conditions ?? "")
+  const [why, setWhy] = useState(initial?.why ?? "")
+  const [alternatives, setAlternatives] = useState(initial?.alternatives ?? "")
+  const [confidence, setConfidence] = useState<Confidence>(initial?.confidence ?? "medium")
+  const [status, setStatus] = useState<AskStatus>(initial?.status ?? "open")
+  const [decidedAt, setDecidedAt] = useState(initial?.decidedAt ?? todayISO())
+  const [stealsFocus, setStealsFocus] = useState(initial?.stealsFocus ? "yes" : "no")
+  const [focusNote, setFocusNote] = useState(initial?.focusNote ?? "")
+  return (
+    <EditorFrame
+      wide
+      title={initial?.id ? "Edit ask" : "New ask"}
+      description="Cash, or time and attention only. A kill or a park stays in the log."
+      onClose={onClose}
+      onSubmit={() => {
+        if (!title.trim()) return
+        if (recommendation === "soft_yes" && !conditions.trim()) return
+        const forCompany = subjectKind === "company" && companyId !== "none"
+        const forIdea = subjectKind === "idea" && ideaId !== "none"
+        if (!forCompany && !forIdea) return
+        onSave({
+          companyId: forCompany ? companyId : null,
+          ideaId: forIdea ? ideaId : null,
+          title: title.trim(),
+          kind,
+          cashAmount: kind === "cash" ? n(cashAmount) : null,
+          recommendation,
+          conditions: recommendation === "soft_yes" ? conditions.trim() : "",
+          why: why.trim(),
+          alternatives: alternatives.trim(),
+          confidence,
+          status: sealed ? initial!.status : status,
+          decidedAt: (sealed ? initial!.status : status) === "open" ? null : decidedAt || todayISO(),
+          stealsFocus: stealsFocus === "yes",
+          focusNote: focusNote.trim(),
+        })
+      }}
+    >
+      <Field label="What they want">
+        {sealed ? <div className="flex h-8 items-center font-mono text-xs">{title}</div> : textInput(title, setTitle, { required: true })}
+      </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="For">
+          {sealed ? (
+            <div className="flex h-8 items-center font-mono text-xs">{subjectKind === "idea" ? "Idea" : "Company"}</div>
+          ) : (
+            <Choose
+              value={subjectKind}
+              onChange={setSubjectKind}
+              options={[{ value: "company", label: "Company" }, { value: "idea", label: "Idea" }]}
+            />
+          )}
+        </Field>
+        {subjectKind === "company" ? (
+          <Field label="Company">
+            {sealed ? (
+              <div className="flex h-8 items-center font-mono text-xs">{companies.find((company) => company.id === companyId)?.name ?? "Former company"}</div>
+            ) : (
+              <Choose
+                value={companyId}
+                onChange={setCompanyId}
+                options={companies.length ? companies.map((company) => ({ value: company.id, label: company.name })) : [{ value: "none", label: "No companies" }]}
+              />
+            )}
+          </Field>
+        ) : (
+          <Field label="Idea">
+            {sealed ? (
+              <div className="flex h-8 items-center font-mono text-xs">{ideas.find((idea) => idea.id === ideaId)?.name ?? "Former idea"}</div>
+            ) : (
+              <Choose
+                value={ideaId}
+                onChange={setIdeaId}
+                options={ideas.length ? ideas.map((idea) => ({ value: idea.id, label: idea.name })) : [{ value: "none", label: "No ideas yet" }]}
+              />
+            )}
+          </Field>
+        )}
+        <Field label="Kind">
+          {sealed ? (
+            <div className="flex h-8 items-center font-mono text-xs">{kind === "attention" ? "Attention only" : "Cash"}</div>
+          ) : (
+            <Choose value={kind} onChange={(value) => setKind(value as AskKind)} options={[{ value: "cash", label: "Cash" }, { value: "attention", label: "Attention only" }]} />
+          )}
+        </Field>
+        {kind === "cash" ? (
+          <Field label="Cash amount">
+            {sealed ? <div className="flex h-8 items-center font-mono text-xs">{cashAmount || "0"}</div> : textInput(cashAmount, setCashAmount, { type: "number" })}
+          </Field>
+        ) : <div />}
+        <Field label="Recommendation">
+          {sealed ? (
+            <div className="flex h-8 items-center font-mono text-xs">{RECOMMENDATION_LABEL[recommendation]}</div>
+          ) : (
+            <Choose value={recommendation} onChange={(value) => setRecommendation(value as Recommendation)} options={RECS} />
+          )}
+        </Field>
+        <Field label="Confidence">
+          <Choose value={confidence} onChange={(value) => setConfidence(value as Confidence)} options={CONFIDENCE} />
+        </Field>
+        {sealed ? (
+          <Field label="Status">
+            <div className="flex h-8 items-center font-mono text-xs uppercase">{initial?.status}</div>
+          </Field>
+        ) : (
+          <Field label="Status">
+            <Choose value={status} onChange={(value) => setStatus(value as AskStatus)} options={ASK_STATUS} />
+          </Field>
+        )}
+        {!sealed && status !== "open" ? <Field label="Date decided">{textInput(decidedAt, setDecidedAt, { type: "date" })}</Field> : null}
+        {sealed && initial?.decidedAt ? (
+          <Field label="Date decided">
+            <div className="flex h-8 items-center font-mono text-xs">{initial.decidedAt}</div>
+          </Field>
+        ) : null}
+        <Field label="Steals focus from #1">
+          {sealed ? (
+            <div className="flex h-8 items-center font-mono text-xs">{stealsFocus === "yes" ? "Yes" : "No"}</div>
+          ) : (
+            <Choose value={stealsFocus} onChange={setStealsFocus} options={[{ value: "no", label: "No" }, { value: "yes", label: "Yes" }]} />
+          )}
+        </Field>
+      </div>
+      {recommendation === "soft_yes" ? <Field label="Conditions">{textInput(conditions, setConditions, { required: true })}</Field> : null}
+      <Field label="Why">
+        <Textarea value={why} onChange={(event) => setWhy(event.target.value)} />
+      </Field>
+      <Field label="What else we considered">
+        <Textarea value={alternatives} onChange={(event) => setAlternatives(event.target.value)} />
+      </Field>
+      <Field label="Attention note">
+        <Textarea value={focusNote} onChange={(event) => setFocusNote(event.target.value)} />
+      </Field>
+    </EditorFrame>
+  )
+}
+
+export function IdeaDialog({
+  open,
+  onOpenChange,
+  initial,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  initial?: Idea | null
+}) {
+  const add = usePortfolio((state) => state.addIdea)
+  const update = usePortfolio((state) => state.updateIdea)
+  if (!open) return null
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <IdeaForm
+        initial={initial}
+        onClose={() => onOpenChange(false)}
+        onSave={(input) => {
+          if (initial?.id) update(initial.id, input)
+          else add(input)
+          onOpenChange(false)
+        }}
+      />
+    </Dialog>
+  )
+}
+
+function IdeaForm({
+  initial,
+  onClose,
+  onSave,
+}: {
+  initial?: Idea | null
+  onClose: () => void
+  onSave: (input: Omit<Idea, "id">) => void
+}) {
+  const [name, setName] = useState(initial?.name ?? "")
+  const [summary, setSummary] = useState(initial?.summary ?? "")
+  const [link, setLink] = useState(initial?.link ?? "")
+  const [stage, setStage] = useState<IdeaStage>(initial?.stage ?? "research")
+  const [killReason, setKillReason] = useState(initial?.killReason ?? "")
+  return (
+    <EditorFrame
+      title={initial?.id ? "Edit idea" : "New idea"}
+      description="Research until you say go. Greenlit is permission to build, not an operating company."
+      onClose={onClose}
+      onSubmit={() => {
+        if (!name.trim()) return
+        if (stage === "weak" && !killReason.trim()) return
+        onSave({
+          name: name.trim(),
+          summary: summary.trim(),
+          link: link.trim(),
+          stage,
+          killReason: stage === "weak" ? killReason.trim() : killReason.trim(),
+        })
+      }}
+    >
+      <Field label="Name">{textInput(name, setName, { required: true })}</Field>
+      <Field label="Stage">
+        <Choose value={stage} onChange={(value) => setStage(value as IdeaStage)} options={STAGES} />
+      </Field>
+      <Field label="One-pager">
+        <Textarea value={summary} onChange={(event) => setSummary(event.target.value)} />
+      </Field>
+      <Field label="Link">{textInput(link, setLink)}</Field>
+      <Field label={stage === "weak" ? "Kill reason" : "Kill reason, if you pass"}>
+        <Textarea value={killReason} onChange={(event) => setKillReason(event.target.value)} />
+      </Field>
+    </EditorFrame>
+  )
+}
+
+export function MarketplaceDialog({
+  open,
+  onOpenChange,
+  companyId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  companyId: string
+}) {
+  const company = usePortfolio((state) => state.companies.find((item) => item.id === companyId))
+  const update = usePortfolio((state) => state.updateCompany)
+  if (!open || !company) return null
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <MarketplaceForm
+        initial={company.marketplace}
+        onClose={() => onOpenChange(false)}
+        onSave={(marketplace) => {
+          update(company.id, { marketplace })
+          onOpenChange(false)
+        }}
+      />
+    </Dialog>
+  )
+}
+
+function MarketplaceForm({
+  initial,
+  onClose,
+  onSave,
+}: {
+  initial: MarketplaceProfile | null
+  onClose: () => void
+  onSave: (profile: MarketplaceProfile) => void
+}) {
+  const [liveListings, setLive] = useState(String(initial?.liveListings ?? 0))
+  const [listingGoal, setGoal] = useState(String(initial?.listingGoal ?? 0))
+  const [paidListings, setPaid] = useState(String(initial?.paidListings ?? 0))
+  const [paidListingCash, setPaidCash] = useState(String(initial?.paidListingCash ?? 0))
+  const [featuredSlots, setSlots] = useState(String(initial?.featuredSlots ?? 0))
+  const [featuredFilled, setFilled] = useState(String(initial?.featuredFilled ?? 0))
+  const [claimsOn, setClaimsOn] = useState(initial?.claimsEligible != null ? "yes" : "no")
+  const [claimsEligible, setEligible] = useState(initial?.claimsEligible != null ? String(initial.claimsEligible) : "")
+  const [claimsOwned, setOwned] = useState(initial?.claimsOwned != null ? String(initial.claimsOwned) : "")
+  return (
+    <EditorFrame
+      title="Listing numbers"
+      description="Inventory and paid listings. These are not statement revenue."
+      onClose={onClose}
+      onSubmit={() => {
+        const tracking = claimsOn === "yes"
+        onSave({
+          liveListings: n(liveListings),
+          listingGoal: n(listingGoal),
+          paidListings: n(paidListings),
+          paidListingCash: n(paidListingCash),
+          featuredSlots: n(featuredSlots),
+          featuredFilled: n(featuredFilled),
+          claimsEligible: tracking ? n(claimsEligible) : null,
+          claimsOwned: tracking ? n(claimsOwned) : null,
+        })
+      }}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Live listings">{textInput(liveListings, setLive, { type: "number" })}</Field>
+        <Field label="Listing goal">{textInput(listingGoal, setGoal, { type: "number" })}</Field>
+        <Field label="Paid listings">{textInput(paidListings, setPaid, { type: "number" })}</Field>
+        <Field label="Cash from paid listings">{textInput(paidListingCash, setPaidCash, { type: "number" })}</Field>
+        <Field label="Featured slots">{textInput(featuredSlots, setSlots, { type: "number" })}</Field>
+        <Field label="Featured filled">{textInput(featuredFilled, setFilled, { type: "number" })}</Field>
+        <Field label="Claims">
+          <Choose value={claimsOn} onChange={setClaimsOn} options={[{ value: "no", label: "No claims" }, { value: "yes", label: "Claims in play" }]} />
+        </Field>
+        {claimsOn === "yes" ? <Field label="Claimable listings">{textInput(claimsEligible, setEligible, { type: "number" })}</Field> : null}
+        {claimsOn === "yes" ? <Field label="Claimed">{textInput(claimsOwned, setOwned, { type: "number" })}</Field> : null}
+      </div>
+    </EditorFrame>
   )
 }

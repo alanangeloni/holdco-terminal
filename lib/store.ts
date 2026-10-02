@@ -10,6 +10,8 @@ import type {
   Bill,
   Book,
   CapTableEntry,
+  CapitalAsk,
+  CapitalSettings,
   Company,
   CorporateEvent,
   Customer,
@@ -18,6 +20,7 @@ import type {
   HoldingCompany,
   IntercompanyLoan,
   Invoice,
+  Idea,
   Kpi,
   MonthlyStatement,
   Objective,
@@ -31,6 +34,8 @@ import type {
   WorkItem,
   WorkStatus,
 } from "./types"
+import { fillAllocation } from "./capital"
+import { todayISO } from "./format"
 import { seed } from "./seed"
 
 export function uid(prefix: string) {
@@ -122,6 +127,13 @@ interface Actions {
   addPost: (input: Omit<SocialPost, "id">) => string
   updatePost: (id: string, patch: Partial<SocialPost>) => void
   deletePost: (id: string) => void
+  updateCapital: (patch: Partial<CapitalSettings>) => void
+  addAsk: (input: Omit<CapitalAsk, "id">) => string
+  updateAsk: (id: string, patch: Partial<CapitalAsk>) => void
+  deleteAsk: (id: string) => void
+  addIdea: (input: Omit<Idea, "id">) => string
+  updateIdea: (id: string, patch: Partial<Idea>) => void
+  deleteIdea: (id: string) => void
 }
 
 export type Portfolio = Data & Actions
@@ -183,8 +195,27 @@ const DATA_KEYS: (keyof Data)[] = [
   "capTable",
   "posts",
   "activity",
+  "capital",
+  "asks",
+  "ideas",
   "asOf",
 ]
+
+function normalizeAsk(ask: CapitalAsk): CapitalAsk {
+  const status = ask.status
+  return {
+    ...ask,
+    cashAmount: ask.kind === "attention" ? null : ask.cashAmount,
+    decidedAt: status === "open" ? null : ask.decidedAt || todayISO(),
+    conditions: ask.recommendation === "soft_yes" ? ask.conditions : "",
+  }
+}
+
+function mergePersisted(persisted: unknown, current: Portfolio): Portfolio {
+  if (!persisted || typeof persisted !== "object") return current
+  const saved = persisted as Partial<Book>
+  return { ...current, ...saved, ...fillAllocation(saved, seed()) }
+}
 
 export const usePortfolio = create<Portfolio>()(
   persist(
@@ -231,6 +262,7 @@ export const usePortfolio = create<Portfolio>()(
           const company = state.companies.find((item) => item.id === id)
           return {
             ...dropCompany(state, id),
+            capital: state.capital.priorityCompanyId === id ? { ...state.capital, priorityCompanyId: null } : state.capital,
             activity: note(state.activity, `Removed ${company?.name ?? "company"} and its records.`),
           }
         }),
@@ -455,9 +487,63 @@ export const usePortfolio = create<Portfolio>()(
       },
       updatePost: (id, patch) => set((state) => ({ posts: patchById(state.posts, id, patch) })),
       deletePost: (id) => set((state) => ({ posts: state.posts.filter((row) => row.id !== id) })),
+      updateCapital: (patch) =>
+        set((state) => ({
+          capital: {
+            ...state.capital,
+            ...patch,
+            deployableCash: Math.max(0, patch.deployableCash ?? state.capital.deployableCash),
+          },
+          activity: note(state.activity, "Updated the capital call."),
+        })),
+      addAsk: (input) => {
+        const id = uid("ask")
+        set((state) => ({
+          asks: [...state.asks, normalizeAsk({ ...input, id })],
+          activity: note(state.activity, `Logged ask ${input.title}.`),
+        }))
+        return id
+      },
+      updateAsk: (id, patch) =>
+        set((state) => ({
+          asks: state.asks.map((ask) => (ask.id === id ? normalizeAsk({ ...ask, ...patch, id }) : ask)),
+          activity: note(state.activity, "Updated a capital ask."),
+        })),
+      deleteAsk: (id) =>
+        set((state) => {
+          const ask = state.asks.find((row) => row.id === id)
+          if (!ask || ask.status !== "open") return {}
+          return {
+            asks: state.asks.filter((row) => row.id !== id),
+            activity: note(state.activity, `Removed open ask ${ask.title}.`),
+          }
+        }),
+      addIdea: (input) => {
+        const id = uid("id")
+        set((state) => ({
+          ideas: [...state.ideas, { ...input, id }],
+          activity: note(state.activity, `Shelved idea ${input.name}.`),
+        }))
+        return id
+      },
+      updateIdea: (id, patch) =>
+        set((state) => ({
+          ideas: patchById(state.ideas, id, patch),
+          activity: note(state.activity, "Updated an idea."),
+        })),
+      deleteIdea: (id) =>
+        set((state) => {
+          const idea = state.ideas.find((row) => row.id === id)
+          if (!idea || idea.stage !== "research") return {}
+          return {
+            ideas: state.ideas.filter((row) => row.id !== id),
+            activity: note(state.activity, `Removed research idea ${idea.name}.`),
+          }
+        }),
     }),
     {
       name: "holdco-terminal-v1",
+      merge: mergePersisted,
       partialize: (state) => {
         const data: Partial<Data> = {}
         for (const key of DATA_KEYS) data[key] = state[key] as never
