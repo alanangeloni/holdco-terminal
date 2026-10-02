@@ -132,7 +132,7 @@ export function TermTable<T>({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={getKey(row)} className="border-b border-border/70 hover:bg-white/3">
+            <tr key={getKey(row)} className="border-b border-border/70 hover:bg-muted">
               {columns.map((column) => (
                 <td key={column.key} className={cn("px-2 py-1.5 align-top", column.className)}>
                   {column.render(row)}
