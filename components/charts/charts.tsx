@@ -66,17 +66,39 @@ export interface Series {
   color: string
 }
 
-export function TermLine({ data, series, height }: { data: Record<string, string | number>[]; series: Series[]; height?: string }) {
+export function TermLine({
+  data,
+  series,
+  height,
+  dual = false,
+}: {
+  data: Record<string, string | number>[]
+  series: Series[]
+  height?: string
+  dual?: boolean
+}) {
   return (
     <ChartBox height={height} empty={!data.length}>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <LineChart data={data} margin={{ top: 8, right: dual ? 8 : 8, left: 0, bottom: 0 }}>
         {grid}
         <X />
         <Y />
+        {dual ? (
+          <YAxis yAxisId="right" orientation="right" tick={axisTick} axisLine={false} tickLine={false} width={48} tickFormatter={(value) => compactMoney(Number(value))} />
+        ) : null}
         <Tooltip {...tipStyle} formatter={(value) => compactMoney(Number(value))} />
         <Legend wrapperStyle={{ fontSize: 11 }} />
-        {series.map((item) => (
-          <Line key={item.key} type="monotone" dataKey={item.key} name={item.name} stroke={item.color} strokeWidth={1.6} dot={false} />
+        {series.map((item, index) => (
+          <Line
+            key={item.key}
+            yAxisId={dual && index > 0 ? "right" : 0}
+            type="monotone"
+            dataKey={item.key}
+            name={item.name}
+            stroke={item.color}
+            strokeWidth={1.6}
+            dot={false}
+          />
         ))}
       </LineChart>
     </ChartBox>

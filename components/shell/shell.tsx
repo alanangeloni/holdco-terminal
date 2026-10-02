@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Menu, Search } from "lucide-react"
@@ -59,7 +59,11 @@ function RailLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false)
+  const ready = useSyncExternalStore(
+    (notify) => usePortfolio.persist.onFinishHydration(() => notify()),
+    () => usePortfolio.persist.hasHydrated(),
+    () => false,
+  )
   const [menu, setMenu] = useState(false)
   const [palette, setPalette] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
@@ -68,13 +72,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const book = usePortfolio()
   const reset = usePortfolio((state) => state.reset)
   const setAsOf = usePortfolio((state) => state.setAsOf)
-
-  useEffect(() => {
-    const persist = usePortfolio.persist
-    const mark = () => setReady(true)
-    if (persist.hasHydrated()) queueMicrotask(mark)
-    return persist.onFinishHydration(mark)
-  }, [])
 
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString([], { hour12: false }))

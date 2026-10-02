@@ -332,7 +332,7 @@ export function HoldcoDesk({ id }: { id: string }) {
         <Lattice snap={snap} />
         <div className="grid gap-2 xl:grid-cols-2">
           <Panel title="Consolidated revenue and net income">
-            <TermLine data={series.map((point) => ({ period: point.period, Revenue: point.revenue, "Net income": point.netIncome }))} series={[{ key: "Revenue", name: "Revenue", color: PALETTE[0] }, { key: "Net income", name: "Net income", color: PALETTE[1] }]} />
+            <TermLine dual data={series.map((point) => ({ period: point.period, Revenue: point.revenue, "Net income": point.netIncome }))} series={[{ key: "Revenue", name: "Revenue", color: PALETTE[0] }, { key: "Net income", name: "Net income", color: PALETTE[1] }]} />
           </Panel>
           <Panel title="Net income by company">
             <TermLine data={lines} series={companies.map((company, index) => ({ key: company.name, name: company.name, color: PALETTE[index % PALETTE.length] }))} />

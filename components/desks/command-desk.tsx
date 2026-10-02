@@ -52,6 +52,7 @@ export function CommandDesk() {
         <div className="grid gap-2 xl:grid-cols-2">
           <Panel title="Revenue and net income">
             <TermLine
+              dual
               data={line}
               series={[
                 { key: "Revenue", name: "Revenue", color: PALETTE[0] },
