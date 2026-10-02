@@ -3,6 +3,7 @@
 import type { ReactNode } from "react"
 import { cn } from "cn"
 import { Button } from "@/components/ui/button"
+import { grainLabel } from "@/lib/grain"
 import type { Span } from "@/lib/types"
 import { compactMoney, money, pct, signedPct } from "@/lib/format"
 
@@ -79,22 +80,28 @@ export function Num({
 }
 
 export function SpanToggle({ value, onChange }: { value: Span; onChange: (span: Span) => void }) {
-  const spans: Span[] = ["3M", "6M", "12M", "ALL"]
+  const spans: Span[] = ["1M", "Q", "3M", "6M", "12M", "ALL"]
   return (
-    <div className="flex border border-border">
-      {spans.map((span) => (
-        <button
-          key={span}
-          type="button"
-          onClick={() => onChange(span)}
-          className={cn(
-            "px-2 py-1 font-mono text-[10px] tracking-wider",
-            value === span ? "bg-amber text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {span}
-        </button>
-      ))}
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap border border-border">
+        {spans.map((span) => (
+          <button
+            key={span}
+            type="button"
+            aria-pressed={value === span}
+            onClick={() => onChange(span)}
+            className={cn(
+              "px-2 py-1 font-mono text-[10px] tracking-wider",
+              value === span ? "bg-amber text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {span}
+          </button>
+        ))}
+      </div>
+      <span className="font-mono text-[10px] tracking-wider text-muted-foreground" title="Days and weeks are split from the closed month and add back to it.">
+        {grainLabel(value)}
+      </span>
     </div>
   )
 }

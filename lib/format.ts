@@ -48,10 +48,15 @@ export function monthLabel(period: string) {
 }
 
 export function monthTick(period: string) {
-  const [y, m] = period.split("-")
-  const idx = Number(m) - 1
-  if (!y || idx < 0) return period
-  return `${MONTHS[idx]} ${y.slice(2)}`
+  const [year, month, day] = period.split("-")
+  const name = MONTHS[Number(month) - 1]
+  if (!year || !name) return period
+  if (day) {
+    const date = Number(day)
+    if (!date) return period
+    return `${name} ${date}`
+  }
+  return `${name} ${year.slice(2)}`
 }
 
 export function todayISO(date = new Date()) {

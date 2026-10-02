@@ -5,13 +5,14 @@ import { Fragment, useState } from "react"
 import { PALETTE, TermHBar, TermLine } from "@/components/charts/charts"
 import { EventDialog, KpiDialog, RiskDialog } from "@/components/dialogs/editors"
 import { Button } from "@/components/ui/button"
-import { Empty, Num, PageHead, Panel, TermTable } from "@/components/terminal/kit"
+import { Empty, Num, PageHead, Panel, SpanToggle, TermTable } from "@/components/terminal/kit"
 import { Lattice } from "@/components/desks/shared"
 import { deriveAlerts, kpiMiss } from "@/lib/alerts"
 import { monthLabel, pct, todayISO } from "@/lib/format"
-import { consolidatedStatement, derivePnl, runway, statementAt } from "@/lib/metrics"
+import { projectRows } from "@/lib/grain"
+import { consolidatedStatement, derivePnl, runway, statementAt, windowPeriods } from "@/lib/metrics"
 import { usePortfolio } from "@/lib/store"
-import type { ConsolidationMode } from "@/lib/types"
+import type { ConsolidationMode, Span } from "@/lib/types"
 import { holdcoCompanies, seriesFor, snapshotFor } from "@/lib/view"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -297,18 +298,24 @@ export function ReportsDesk() {
 export function HoldcoDesk({ id }: { id: string }) {
   const book = usePortfolio()
   const [mode, setMode] = useState<ConsolidationMode>("full")
+  const [span, setSpan] = useState<Span>("12M")
   const holdco = book.holdcos.find((item) => item.id === id)
   const companies = holdco ? holdcoCompanies(book, holdco.id) : []
   const snap = snapshotFor(book, companies, mode)
-  const series = seriesFor(book, companies, "12M", mode)
-  const lines = series.map((point) => {
-    const row: Record<string, string | number> = { period: point.period }
-    for (const company of companies) {
-      const statement = statementAt(book.statements, company.id, point.period)
-      row[company.name] = statement ? derivePnl(statement).netIncome * (mode === "weighted" ? company.ownershipPct / 100 : 1) : 0
-    }
-    return row
-  })
+  const series = seriesFor(book, companies, span, mode)
+  const periods = windowPeriods([...new Set(book.statements.map((statement) => statement.period))], book.asOf, span)
+  const lines = projectRows(
+    periods.map((period) => {
+      const values: Record<string, number> = {}
+      for (const company of companies) {
+        const statement = statementAt(book.statements, company.id, period)
+        values[company.name] = statement ? derivePnl(statement).netIncome * (mode === "weighted" ? company.ownershipPct / 100 : 1) : 0
+      }
+      return { period, values }
+    }),
+    span,
+    book.asOf,
+  ).map((row) => ({ period: row.period, ...row.values }))
   if (!holdco) {
     return <div className="p-6 text-sm text-muted-foreground">That holding company is not in the book.</div>
   }
@@ -319,13 +326,16 @@ export function HoldcoDesk({ id }: { id: string }) {
         title={holdco.name}
         lede={`${holdco.description} Rollup is uneliminated.`}
         actions={
-          <div className="flex border border-border">
-            {(["full", "weighted"] as const).map((value) => (
-              <button key={value} type="button" onClick={() => setMode(value)} className={`px-2 py-1 font-mono text-[10px] tracking-wider uppercase ${mode === value ? "bg-amber text-primary-foreground" : "text-muted-foreground"}`}>
-                {value === "full" ? "Full" : "Ownership weighted"}
-              </button>
-            ))}
-          </div>
+          <>
+            <SpanToggle value={span} onChange={setSpan} />
+            <div className="flex border border-border">
+              {(["full", "weighted"] as const).map((value) => (
+                <button key={value} type="button" onClick={() => setMode(value)} className={`px-2 py-1 font-mono text-[10px] tracking-wider uppercase ${mode === value ? "bg-amber text-primary-foreground" : "text-muted-foreground"}`}>
+                  {value === "full" ? "Full" : "Ownership weighted"}
+                </button>
+              ))}
+            </div>
+          </>
         }
       />
       <div className="grid gap-2 p-2 lg:p-3">

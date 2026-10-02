@@ -212,8 +212,16 @@ export function companyPeriods(statements: MonthlyStatement[], companyId: string
 export function windowPeriods(available: string[], asOf: string, span: Span) {
   const sorted = [...new Set(available)].filter((p) => p <= asOf).sort()
   if (span === "ALL") return sorted
-  const n = span === "3M" ? 3 : span === "6M" ? 6 : 12
-  return sorted.slice(-n)
+  if (span === "1M") return sorted.filter((period) => period === asOf)
+  if (span === "Q") {
+    const [year, month] = asOf.split("-").map(Number)
+    if (!year || !month) return []
+    const start = Math.floor((month - 1) / 3) * 3 + 1
+    const quarter = new Set([0, 1, 2].map((offset) => `${year}-${String(start + offset).padStart(2, "0")}`))
+    return sorted.filter((period) => quarter.has(period))
+  }
+  const length = span === "3M" ? 3 : span === "6M" ? 6 : 12
+  return sorted.slice(-length)
 }
 
 export function mom(current: number, previous: number | undefined) {

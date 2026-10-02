@@ -16,7 +16,8 @@ import {
 } from "@/components/dialogs/editors"
 import { Button } from "@/components/ui/button"
 import { Empty, MiniActions, Num, PageHead, Panel, SpanToggle, TermTable } from "@/components/terminal/kit"
-import { aging, balanceTotals, budgetPnl, derivePnl, statementAt, waterfall } from "@/lib/metrics"
+import { projectRows } from "@/lib/grain"
+import { aging, balanceTotals, budgetPnl, derivePnl, statementAt, waterfall, windowPeriods } from "@/lib/metrics"
 import { money, pct } from "@/lib/format"
 import { usePortfolio } from "@/lib/store"
 import type { Span } from "@/lib/types"
@@ -47,7 +48,7 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
 
   const body = company ? (
     <div className="grid gap-2">
-      <div className="flex justify-end"><SpanToggle value={span} onChange={setSpan} /></div>
+      {embedded ? <div className="flex justify-end"><SpanToggle value={span} onChange={setSpan} /></div> : null}
       <div className="grid gap-2 xl:grid-cols-2">
         <Panel title="Revenue and margin">
           <TermCombo data={series.map((point) => ({ period: point.period, revenue: point.revenue, grossMargin: point.grossMargin }))} />
@@ -113,7 +114,7 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
     </div>
   ) : (
     <div className="grid gap-2">
-      <div className="flex justify-end"><SpanToggle value={span} onChange={setSpan} /></div>
+      {embedded ? <div className="flex justify-end"><SpanToggle value={span} onChange={setSpan} /></div> : null}
       <Panel title="Net income">
         <TermLine
           data={series.map((point) => ({ period: point.period, "Net income": point.netIncome }))}
@@ -137,7 +138,7 @@ export function StatementsDesk({ companyId, embedded = false }: { companyId?: st
   return (
     <div>
       {embedded ? null : (
-        <PageHead kicker="Books" title="Statements" lede="Closed months are the source of truth. Budget sits beside actuals." actions={<SpanToggle value={span} onChange={setSpan} />} />
+        <PageHead kicker="Books" title="Statements" lede="Closed months are the source of truth. 1M is daily and quarter is weekly; both add back to the month. Budget sits beside actuals." actions={<SpanToggle value={span} onChange={setSpan} />} />
       )}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {company ? (
@@ -194,17 +195,21 @@ export function RevenueDesk({ companyId, embedded = false }: { companyId?: strin
   const [dealOpen, setDealOpen] = useState(false)
   const companies = book.companies.filter((company) => !companyId || company.id === companyId)
   const ids = new Set(companies.map((company) => company.id))
-  const periods = seriesFor(book, companies, span).map((point) => point.period)
+  const periods = windowPeriods([...new Set(book.statements.map((statement) => statement.period))], book.asOf, span)
   const lines = book.productLines.filter((line) => ids.has(line.companyId))
-  const stacked = periods.map((period) => {
-    const row: Record<string, string | number> = { period }
-    if (companyId) {
-      for (const line of lines) row[line.name] = line.monthly.find((month) => month.period === period)?.revenue ?? 0
-    } else {
-      for (const company of companies) row[company.name] = statementAt(book.statements, company.id, period)?.revenue ?? 0
-    }
-    return row
-  })
+  const stacked = projectRows(
+    periods.map((period) => {
+      const values: Record<string, number> = {}
+      if (companyId) {
+        for (const line of lines) values[line.name] = line.monthly.find((month) => month.period === period)?.revenue ?? 0
+      } else {
+        for (const company of companies) values[company.name] = statementAt(book.statements, company.id, period)?.revenue ?? 0
+      }
+      return { period, values }
+    }),
+    span,
+    book.asOf,
+  ).map((row) => ({ period: row.period, ...row.values }))
   const series = (companyId ? lines.map((line) => line.name) : companies.map((company) => company.name)).map((name, index) => ({
     key: name,
     name,
@@ -390,8 +395,17 @@ export function TreasuryDesk({ companyId, embedded = false }: { companyId?: stri
   }))
   const runwayBars = companies
     .map((company) => {
-      const months = seriesFor(book, [company], "3M")
-      const burn = months.length ? -months.reduce((sum, point) => sum + point.netIncome, 0) / months.length : 0
+      const months = windowPeriods(
+        book.statements.filter((statement) => statement.companyId === company.id).map((statement) => statement.period),
+        book.asOf,
+        "3M",
+      )
+      const burn = months.length
+        ? -months.reduce((sum, period) => {
+            const statement = statementAt(book.statements, company.id, period)
+            return sum + (statement ? derivePnl(statement).netIncome : 0)
+          }, 0) / months.length
+        : 0
       const cash = statementAt(book.statements, company.id, book.asOf)?.cash ?? 0
       return { name: company.name, value: burn > 0 ? cash / burn : 0, burn }
     })

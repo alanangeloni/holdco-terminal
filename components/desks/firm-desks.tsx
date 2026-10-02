@@ -7,11 +7,12 @@ import { AssetDialog, ConfirmDialog, PersonDialog, PostDialog, WikiDialog, WorkD
 import { Button } from "@/components/ui/button"
 import { Empty, MiniActions, Num, PageHead, Panel, SpanToggle, TermTable } from "@/components/terminal/kit"
 import { pct } from "@/lib/format"
-import { statementAt } from "@/lib/metrics"
+import { projectRows } from "@/lib/grain"
+import { shiftPeriod, statementAt, windowPeriods } from "@/lib/metrics"
 import { usePortfolio } from "@/lib/store"
 import type { AssetCategory, Span, WorkStatus } from "@/lib/types"
 import { PLATFORMS } from "@/lib/types"
-import { seriesFor } from "@/lib/view"
+import { seriesFor, snapshotFor } from "@/lib/view"
 
 const COST_SERIES = [
   { key: "Organic", name: "Organic", color: "#3dd68c" },
@@ -27,6 +28,18 @@ export function AudienceDesk({ companyId, embedded = false }: { companyId?: stri
   const [open, setOpen] = useState(false)
   const companies = book.companies.filter((company) => !companyId || company.id === companyId)
   const series = seriesFor(book, companies, span)
+  const periods = windowPeriods([...new Set(book.statements.map((statement) => statement.period))], book.asOf, span)
+  const socialAt = (period: string) => {
+    const values: Record<string, number> = {}
+    for (const platform of PLATFORMS) {
+      values[platform] = companies.reduce((sum, company) => sum + (statementAt(book.statements, company.id, period)?.social[platform].followers ?? 0), 0)
+    }
+    return { period, values }
+  }
+  const priorPeriod = periods[0] ? shiftPeriod(periods[0], -1) : null
+  const prior = priorPeriod && companies.some((company) => statementAt(book.statements, company.id, priorPeriod)) ? socialAt(priorPeriod) : null
+  const social = projectRows(periods.map(socialAt), span, book.asOf, { stock: [...PLATFORMS], prior }).map((row) => ({ period: row.period, ...row.values }))
+  const snap = snapshotFor(book, companies)
   const channels = series.map((point) => ({
     period: point.period,
     Organic: point.channelOrganic,
@@ -35,17 +48,9 @@ export function AudienceDesk({ companyId, embedded = false }: { companyId?: stri
     Referral: point.channelReferral,
     Social: point.channelSocial,
   }))
-  const social = series.map((point) => {
-    const row: Record<string, string | number> = { period: point.period }
-    for (const platform of PLATFORMS) {
-      row[platform] = companies.reduce((sum, company) => sum + (statementAt(book.statements, company.id, point.period)?.social[platform].followers ?? 0), 0)
-    }
-    return row
-  })
-  const latest = series.at(-1)
   const funnel = [
-    { name: "Visits", value: latest?.sessions ?? 0 },
-    { name: "Leads", value: latest?.conversions ?? 0 },
+    { name: "Visits", value: snap.sessions },
+    { name: "Leads", value: snap.conversions },
     { name: "Customers", value: new Set(book.invoices.filter((invoice) => companies.some((company) => company.id === invoice.companyId) && invoice.issue.startsWith(book.asOf)).map((invoice) => invoice.customerId)).size },
   ]
   const posts = book.posts.filter((post) => companies.some((company) => company.id === post.companyId))
@@ -85,9 +90,9 @@ export function AudienceDesk({ companyId, embedded = false }: { companyId?: stri
             ]}
           />
         </Panel>
-        {latest ? (
+        {periods.length ? (
           <p className="text-[11px] text-muted-foreground">
-            Latest followers {Math.round(latest.followers).toLocaleString()} · bounce is on the company statement.
+            Latest followers {Math.round(snap.followers).toLocaleString()} · bounce is on the company statement.
             {companyId && statementAt(book.statements, companyId, book.asOf) ? ` Bounce ${pct(statementAt(book.statements, companyId, book.asOf)!.bounceRate)}.` : ""}
           </p>
         ) : null}

@@ -14,7 +14,8 @@ export type EventKind = "filing" | "insurance" | "contract" | "license" | "board
 export type EventStatus = "upcoming" | "done" | "overdue"
 export type RiskStatus = "open" | "mitigating" | "closed"
 export type Platform = "x" | "linkedin" | "instagram" | "youtube"
-export type Span = "3M" | "6M" | "12M" | "ALL"
+export type Span = "1M" | "Q" | "3M" | "6M" | "12M" | "ALL"
+export type Grain = "day" | "week" | "month"
 export type ConsolidationMode = "full" | "weighted"
 
 export const PLATFORMS: Platform[] = ["x", "linkedin", "instagram", "youtube"]

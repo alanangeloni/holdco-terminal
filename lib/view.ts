@@ -1,3 +1,4 @@
+import { grainFor, projectRows, type MonthlyRow } from "./grain"
 import type { Book, Company, Span } from "./types"
 import { PLATFORMS } from "./types"
 import {
@@ -100,6 +101,21 @@ function pointFrom(statement: NonNullable<ReturnType<typeof consolidatedStatemen
   }
 }
 
+const STOCK_KEYS = ["cash", "followers"]
+const RATE_KEYS = ["grossMargin"]
+
+function valuesOf(point: Point): Record<string, number> {
+  const values: Record<string, number> = {}
+  for (const [key, value] of Object.entries(point)) {
+    if (key !== "period") values[key] = value
+  }
+  return values
+}
+
+function pointFromValues(period: string, values: Record<string, number>, template: Point): Point {
+  return { ...template, ...values, period }
+}
+
 export function seriesFor(
   book: Book,
   companies: Company[],
@@ -113,7 +129,17 @@ export function seriesFor(
     const statement = consolidatedStatement(book.statements, companies, period, mode)
     if (statement) points.push(pointFrom(statement, period))
   }
-  return points
+  if (grainFor(span) === "month" || points.length === 0) return points
+  const priorPeriod = shiftPeriod(points[0].period, -1)
+  const priorStatement = consolidatedStatement(book.statements, companies, priorPeriod, mode)
+  const prior = priorStatement ? pointFrom(priorStatement, priorPeriod) : null
+  const monthly: MonthlyRow[] = points.map((point) => ({ period: point.period, values: valuesOf(point) }))
+  const projected = projectRows(monthly, span, book.asOf, {
+    stock: STOCK_KEYS,
+    rate: RATE_KEYS,
+    prior: prior ? { period: prior.period, values: valuesOf(prior) } : null,
+  })
+  return projected.map((row) => pointFromValues(row.period, row.values, points[0]))
 }
 
 export function companySeries(book: Book, companyId: string, span: Span) {

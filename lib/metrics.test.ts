@@ -138,6 +138,11 @@ describe("periods, aging, runway", () => {
       "2026-02",
       "2026-03",
     ])
+    expect(windowPeriods(["2026-07", "2026-08", "2026-09"], "2026-09", "1M")).toEqual(["2026-09"])
+    expect(windowPeriods(["2026-06", "2026-07", "2026-08", "2026-09"], "2026-08", "Q")).toEqual([
+      "2026-07",
+      "2026-08",
+    ])
   })
 
   it("buckets open invoices against the month end", () => {

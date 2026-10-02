@@ -23,6 +23,7 @@ npm test
 - Enter or edit a closed month: P&L, budget, balance sheet, cash flow, site, and social.
 - Record customers, invoices, vendors, bills, bank accounts, assets, people, agents, work, and wiki pages.
 - Move the as-of month. Statement figures, aging, runway, and scorecards follow it.
+- Switch a chart between 1M (daily), quarter (weekly), and 3M, 6M, 12M, or all (monthly). Daily and weekly points are split from the closed month and add back to it.
 - Read alerts, the holdings rollup (full or ownership-weighted), and a printable board pack.
 
 Consolidation adds subsidiary books without eliminating intercompany loans. Those loans are labeled uneliminated.

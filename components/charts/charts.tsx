@@ -45,7 +45,7 @@ export function ChartBox({
 }
 
 function X({ dataKey = "period" }: { dataKey?: string }) {
-  return <XAxis dataKey={dataKey} tick={axisTick} axisLine={{ stroke: "#2a2f36" }} tickLine={false} tickFormatter={(value) => (String(value).includes("-") ? monthTick(String(value)) : String(value))} interval="preserveStartEnd" />
+  return <XAxis dataKey={dataKey} tick={axisTick} axisLine={{ stroke: "#2a2f36" }} tickLine={false} minTickGap={20} tickFormatter={(value) => (String(value).includes("-") ? monthTick(String(value)) : String(value))} interval="preserveStartEnd" />
 }
 
 function Y({ money = true, percent = false }: { money?: boolean; percent?: boolean }) {
