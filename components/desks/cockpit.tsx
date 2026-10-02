@@ -1,8 +1,8 @@
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState } from "react"
-import { CompanyDialog } from "@/components/dialogs/editors"
+import { useState, type ReactNode } from "react"
+import { CompanyDialog, MarketplaceDialog } from "@/components/dialogs/editors"
 import { AssetsDesk, AudienceDesk, PeopleDesk, WikiDesk, WorkDesk } from "@/components/desks/firm-desks"
 import { PayablesDesk, ReceivablesDesk, RevenueDesk, StatementsDesk, TreasuryDesk } from "@/components/desks/finance-desks"
 import { CorporateDesk, ScorecardDesk } from "@/components/desks/record-desks"
@@ -10,10 +10,12 @@ import { Lattice } from "@/components/desks/shared"
 import { Spark } from "@/components/charts/charts"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Empty, PageHead, Panel } from "@/components/terminal/kit"
+import { Empty, Num, PageHead, Panel } from "@/components/terminal/kit"
 import { deriveAlerts } from "@/lib/alerts"
-import { todayISO } from "@/lib/format"
+import { HEALTH_LABEL, claimRate, featuredFill, listingDensity } from "@/lib/capital"
+import { pct, todayISO } from "@/lib/format"
 import { usePortfolio } from "@/lib/store"
+import type { MarketplaceProfile } from "@/lib/types"
 import { snapshotFor, sparkline } from "@/lib/view"
 
 const TABS = [
@@ -39,6 +41,7 @@ export function Cockpit({ id }: { id: string }) {
   const tab = TABS.some((item) => item[0] === params.get("tab")) ? (params.get("tab") as (typeof TABS)[number][0]) : "overview"
   const company = book.companies.find((item) => item.id === id)
   const [edit, setEdit] = useState(false)
+  const [marketOpen, setMarketOpen] = useState(false)
   if (!company) {
     return <div className="p-6 text-sm text-muted-foreground">That company is not in the book.</div>
   }
@@ -49,7 +52,7 @@ export function Cockpit({ id }: { id: string }) {
   return (
     <div>
       <PageHead
-        kicker={`${company.status} · ${company.businessModel} · ${company.ownershipPct}% owned${holdco ? ` · ${holdco.name}` : " · standalone"}`}
+        kicker={`${company.status} · ${HEALTH_LABEL[company.health]} · ${company.businessModel} · ${company.ownershipPct}% owned${holdco ? ` · ${holdco.name}` : " · standalone"}`}
         title={company.name}
         lede={company.description}
         actions={<Button size="sm" variant="outline" onClick={() => setEdit(true)}>Edit company</Button>}
@@ -76,6 +79,9 @@ export function Cockpit({ id }: { id: string }) {
             </TabsList>
           </div>
           <TabsContent value="overview" className="grid gap-2 lg:grid-cols-2">
+            {company.businessModel === "marketplace" || company.marketplace ? (
+              <MarketplacePanel profile={company.marketplace} onEdit={() => setMarketOpen(true)} />
+            ) : null}
             <Panel title="Revenue, twelve months">
               <div className="flex items-center gap-3">
                 <Spark data={sparkline(book, company.id)} />
@@ -119,6 +125,51 @@ export function Cockpit({ id }: { id: string }) {
         </Tabs>
       </div>
       {edit ? <CompanyDialog open onOpenChange={setEdit} initial={company} /> : null}
+      <MarketplaceDialog open={marketOpen} onOpenChange={setMarketOpen} companyId={company.id} />
+    </div>
+  )
+}
+
+function MarketplacePanel({
+  profile,
+  onEdit,
+}: {
+  profile: MarketplaceProfile | null
+  onEdit: () => void
+}) {
+  if (!profile) {
+    return (
+      <Panel className="lg:col-span-2" title="Marketplace" action={<Button size="xs" variant="outline" onClick={onEdit}>Add listing numbers</Button>}>
+        <Empty>No listing counts yet. Statement revenue is not inventory.</Empty>
+      </Panel>
+    )
+  }
+  const density = listingDensity(profile)
+  const claims = claimRate(profile)
+  const featured = featuredFill(profile)
+  return (
+    <Panel className="lg:col-span-2" title="Marketplace" action={<Button size="xs" variant="outline" onClick={onEdit}>Edit listings</Button>}>
+      <div className="grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-3 lg:grid-cols-5">
+        <Metric label="Live" value={String(profile.liveListings)} sub={`goal ${profile.listingGoal}`} />
+        <Metric label="Density" value={density === null ? "—" : pct(density)} sub={`${profile.liveListings} / ${profile.listingGoal}`} />
+        <Metric label="Paid" value={String(profile.paidListings)} sub={<Num value={profile.paidListingCash} />} />
+        <Metric label="Featured" value={`${profile.featuredFilled}/${profile.featuredSlots}`} sub={featured === null ? "—" : pct(featured)} />
+        <Metric
+          label="Claims"
+          value={claims === null ? "—" : pct(claims)}
+          sub={profile.claimsEligible === null || profile.claimsOwned === null ? "No claims" : `${profile.claimsOwned} / ${profile.claimsEligible}`}
+        />
+      </div>
+    </Panel>
+  )
+}
+
+function Metric({ label, value, sub }: { label: string; value: string; sub?: ReactNode }) {
+  return (
+    <div className="bg-card px-2.5 py-2">
+      <div className="text-[10px] tracking-[0.14em] text-amber uppercase">{label}</div>
+      <div className="mt-1 font-mono text-sm">{value}</div>
+      {sub ? <div className="font-mono text-[10px] text-muted-foreground">{sub}</div> : null}
     </div>
   )
 }

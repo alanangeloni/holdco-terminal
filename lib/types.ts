@@ -17,6 +17,12 @@ export type Platform = "x" | "linkedin" | "instagram" | "youtube"
 export type Span = "1M" | "Q" | "3M" | "6M" | "12M" | "ALL"
 export type Grain = "day" | "week" | "month"
 export type ConsolidationMode = "full" | "weighted"
+export type HealthTier = "grow" | "hold" | "fix" | "stop"
+export type AskKind = "cash" | "attention"
+export type Recommendation = "do" | "dont" | "park" | "soft_yes"
+export type AskStatus = "open" | "decided" | "parked"
+export type Confidence = "low" | "medium" | "high"
+export type IdeaStage = "research" | "weak" | "parked" | "greenlit"
 
 export const PLATFORMS: Platform[] = ["x", "linkedin", "instagram", "youtube"]
 
@@ -53,6 +59,53 @@ export interface Company {
   founded: string
   description: string
   officers: Officer[]
+  health: HealthTier
+  marketplace: MarketplaceProfile | null
+}
+
+export interface MarketplaceProfile {
+  liveListings: number
+  listingGoal: number
+  paidListings: number
+  paidListingCash: number
+  featuredSlots: number
+  featuredFilled: number
+  claimsEligible: number | null
+  claimsOwned: number | null
+}
+
+export interface CapitalSettings {
+  deployableCash: number
+  priorityCompanyId: string | null
+  callNote: string
+  callDate: string
+}
+
+export interface CapitalAsk {
+  id: string
+  companyId: string | null
+  ideaId: string | null
+  title: string
+  kind: AskKind
+  cashAmount: number | null
+  recommendation: Recommendation
+  conditions: string
+  why: string
+  alternatives: string
+  confidence: Confidence
+  status: AskStatus
+  decidedAt: string | null
+  stealsFocus: boolean
+  focusNote: string
+}
+
+export interface Idea {
+  id: string
+  name: string
+  summary: string
+  link: string
+  stage: IdeaStage
+  killReason: string
 }
 
 export interface SocialPoint {
@@ -345,6 +398,9 @@ export interface Book {
   capTable: CapTableEntry[]
   posts: SocialPost[]
   activity: ActivityEvent[]
+  capital: CapitalSettings
+  asks: CapitalAsk[]
+  ideas: Idea[]
   asOf: string
 }
 

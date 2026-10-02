@@ -41,6 +41,12 @@ export function compact(n: number) {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
+export function dayLabel(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number)
+  if (!y || !m || !d) return iso
+  return `${MONTHS[m - 1]} ${d}, ${y}`
+}
+
 export function monthLabel(period: string) {
   const [y, m] = period.split("-").map(Number)
   if (!y || !m) return period

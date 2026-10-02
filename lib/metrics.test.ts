@@ -80,6 +80,8 @@ const company = (id: string, ownershipPct: number, parentCompanyId: string | nul
   founded: "2020",
   description: "",
   officers: [],
+  health: "hold",
+  marketplace: null,
 })
 
 describe("derivePnl", () => {
