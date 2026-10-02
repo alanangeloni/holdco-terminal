@@ -31,6 +31,7 @@ interface ChartTheme {
   down: string
   radius: string
   font: string
+  curve: "monotone" | "stepAfter"
 }
 
 const FALLBACK: ChartTheme = {
@@ -44,6 +45,7 @@ const FALLBACK: ChartTheme = {
   down: "#ff5d5d",
   radius: "0px",
   font: "IBM Plex Mono, ui-monospace, monospace",
+  curve: "monotone",
 }
 
 function readChartTheme(): ChartTheme {
@@ -60,6 +62,7 @@ function readChartTheme(): ChartTheme {
     down: pick("--down", FALLBACK.down),
     radius: pick("--radius", FALLBACK.radius),
     font: pick("--app-font-mono", FALLBACK.font),
+    curve: document.documentElement.dataset.style === "gameboy" ? "stepAfter" : "monotone",
   }
 }
 
@@ -182,7 +185,7 @@ export function TermLine({
           <Line
             key={item.key}
             yAxisId={dual && index > 0 ? "right" : 0}
-            type="monotone"
+            type={theme.curve}
             dataKey={item.key}
             name={item.name}
             stroke={item.color}
@@ -196,9 +199,9 @@ export function TermLine({
 }
 
 export function TermArea({ data, dataKey, name, color, height }: { data: Record<string, string | number>[]; dataKey: string; name: string; color?: string; height?: string }) {
-  const palette = usePalette()
+  const theme = useChartTheme()
   const tipStyle = useTip()
-  const stroke = color ?? palette[0]
+  const stroke = color ?? theme.palette[0]
   return (
     <ChartBox height={height} empty={!data.length}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -206,7 +209,7 @@ export function TermArea({ data, dataKey, name, color, height }: { data: Record<
         <X />
         <Y />
         <Tooltip {...tipStyle} formatter={(value) => compactMoney(Number(value))} />
-        <Area type="monotone" dataKey={dataKey} name={name} stroke={stroke} fill={stroke} fillOpacity={0.18} strokeWidth={1.6} />
+        <Area type={theme.curve} dataKey={dataKey} name={name} stroke={stroke} fill={stroke} fillOpacity={0.18} strokeWidth={1.6} />
       </AreaChart>
     </ChartBox>
   )
@@ -245,7 +248,7 @@ export function TermStacked({ data, series, height, area = false }: { data: Reco
         <Legend wrapperStyle={{ fontSize: 11, color: theme.foreground }} />
         {series.map((item) =>
           area ? (
-            <Area key={item.key} type="monotone" dataKey={item.key} name={item.name} stackId="a" stroke={item.color} fill={item.color} fillOpacity={0.75} />
+            <Area key={item.key} type={theme.curve} dataKey={item.key} name={item.name} stackId="a" stroke={item.color} fill={item.color} fillOpacity={0.75} />
           ) : (
             <Bar key={item.key} dataKey={item.key} name={item.name} stackId="a" fill={item.color} maxBarSize={22} />
           ),
@@ -305,21 +308,21 @@ export function TermCombo({ data }: { data: { period: string; revenue: number; g
         <Tooltip {...tipStyle} />
         <Legend wrapperStyle={{ fontSize: 11, color: theme.foreground }} />
         <Bar yAxisId={0} dataKey="revenue" name="Revenue" fill={theme.palette[0]} maxBarSize={18} />
-        <Line yAxisId="right" type="monotone" dataKey="grossMargin" name="Gross margin" stroke={theme.palette[1]} strokeWidth={1.6} dot={false} />
+        <Line yAxisId="right" type={theme.curve} dataKey="grossMargin" name="Gross margin" stroke={theme.palette[1]} strokeWidth={1.6} dot={false} />
       </ComposedChart>
     </ChartBox>
   )
 }
 
 export function Spark({ data, color }: { data: number[]; color?: string }) {
-  const palette = usePalette()
+  const theme = useChartTheme()
   const rows = data.map((value, index) => ({ index, value }))
   if (!rows.length) return <span className="text-muted-foreground">—</span>
   return (
     <div className="h-7 w-24">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={rows}>
-          <Line type="monotone" dataKey="value" stroke={color ?? palette[0]} strokeWidth={1.3} dot={false} />
+          <Line type={theme.curve} dataKey="value" stroke={color ?? theme.palette[0]} strokeWidth={1.3} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

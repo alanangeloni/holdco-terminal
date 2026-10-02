@@ -27,6 +27,54 @@ function toneFor(item: StyleOption, mode: ModeId): Swatch {
 
 function Preview({ item, mode }: { item: StyleOption; mode: ModeId }) {
   const tone = toneFor(item, mode)
+  if (item.id === "gameboy") {
+    return (
+      <div
+        className="relative flex h-28 w-full shrink-0 flex-col justify-end overflow-hidden px-2 pb-2 sm:w-48"
+        style={{ background: tone.bg, color: tone.ink, fontFamily: "Silkscreen, ui-monospace, monospace" }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: "radial-gradient(#0f380f 0.6px, transparent 0.75px)",
+            backgroundSize: "3px 3px",
+            opacity: 0.35,
+          }}
+        />
+        <div className="relative text-[10px]">12,480</div>
+        <div className="relative mt-2 flex h-10 items-end gap-1">
+          {[8, 14, 10, 18, 12, 20, 16].map((height, index) => (
+            <span key={index} className="w-2" style={{ height, background: tone.ink }} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+  if (item.id === "etch") {
+    return (
+      <div className="relative h-28 w-full shrink-0 overflow-hidden sm:w-48" style={{ background: tone.bg, color: tone.ink }}>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: "radial-gradient(rgba(0,0,0,0.18) 0.4px, transparent 0.55px)",
+            backgroundSize: "3px 3px",
+          }}
+        />
+        <svg viewBox="0 0 160 90" className="absolute inset-0 h-full w-full" fill="none" aria-hidden>
+          <polyline
+            points="8,70 28,62 48,66 68,40 88,48 108,28 128,34 152,18"
+            stroke={tone.ink}
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="relative px-2 py-1 text-[11px] font-light">12,480</div>
+      </div>
+    )
+  }
   if (item.flat) {
     return (
       <div className="flex h-28 w-full shrink-0 flex-col justify-between p-3 sm:w-48" style={{ background: tone.bg, color: tone.ink }}>
