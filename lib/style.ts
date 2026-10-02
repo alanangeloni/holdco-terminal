@@ -157,6 +157,142 @@ export const STYLES = [
       muted: "#3a3818",
     },
   },
+  {
+    id: "gameboy",
+    label: "Game Boy",
+    code: "GB",
+    night: false,
+    flat: false,
+    blurb: "Olive LCD. Pixels, no shell.",
+    swatch: {
+      bg: "#9bbc0f",
+      ink: "#0f380f",
+      accent: "#0f380f",
+      paper: "#8bac0f",
+      bar: "#8bac0f",
+      barInk: "#0f380f",
+      muted: "#306230",
+    },
+  },
+  {
+    id: "etch",
+    label: "Etch A Sketch",
+    code: "ETCH",
+    night: false,
+    flat: false,
+    blurb: "Silver powder. A line, and nothing else.",
+    swatch: {
+      bg: "#c5c5c5",
+      ink: "#1c1c1c",
+      accent: "#1c1c1c",
+      paper: "#c5c5c5",
+      bar: "#b5b5b5",
+      barInk: "#1c1c1c",
+      muted: "#6a6a6a",
+    },
+  },
+  {
+    id: "berkshire",
+    label: "Berkshire",
+    code: "BRK",
+    night: false,
+    flat: false,
+    blurb: "Times, blue links, and nothing designed.",
+    swatch: {
+      bg: "#ffffff",
+      ink: "#000000",
+      accent: "#0000ee",
+      paper: "#ffffff",
+      bar: "#ffffff",
+      barInk: "#0000ee",
+      muted: "#000000",
+    },
+  },
+  {
+    id: "thermal",
+    label: "Thermal",
+    code: "TILL",
+    night: false,
+    flat: false,
+    blurb: "Heat on a till roll.",
+    swatch: {
+      bg: "#f4efe4",
+      ink: "#5a554c",
+      accent: "#3f3b34",
+      paper: "#f7f3ea",
+      bar: "#efe8da",
+      barInk: "#4a453c",
+      muted: "#a39888",
+    },
+  },
+  {
+    id: "flap",
+    label: "Departures",
+    code: "FLAP",
+    night: true,
+    flat: false,
+    blurb: "Split-flap. The board, not the airport.",
+    swatch: {
+      bg: "#0e0e0e",
+      ink: "#f3e6c0",
+      accent: "#f3e6c0",
+      paper: "#161616",
+      bar: "#111111",
+      barInk: "#f3e6c0",
+      muted: "#3a3428",
+    },
+  },
+  {
+    id: "riso",
+    label: "Riso",
+    code: "RISO",
+    night: false,
+    flat: false,
+    blurb: "Two inks, off register.",
+    swatch: {
+      bg: "#f6f1e4",
+      ink: "#141414",
+      accent: "#ff2f92",
+      paper: "#f6f1e4",
+      bar: "#2f4bff",
+      barInk: "#f6f1e4",
+      muted: "#2f4bff",
+    },
+  },
+  {
+    id: "chalk",
+    label: "Chalk",
+    code: "CHLK",
+    night: true,
+    flat: false,
+    blurb: "Dust on a slate.",
+    swatch: {
+      bg: "#1c2823",
+      ink: "#f3f0e4",
+      accent: "#f0e2a0",
+      paper: "#24322c",
+      bar: "#1c2823",
+      barInk: "#f3f0e4",
+      muted: "#8a9a90",
+    },
+  },
+  {
+    id: "led",
+    label: "LED",
+    code: "LED",
+    night: true,
+    flat: false,
+    blurb: "Red dots. A ticker, not a tube.",
+    swatch: {
+      bg: "#070000",
+      ink: "#ff3a3a",
+      accent: "#ff2a2a",
+      paper: "#120404",
+      bar: "#070000",
+      barInk: "#ff2a2a",
+      muted: "#6a2020",
+    },
+  },
 ] as const
 
 export type StyleId = (typeof STYLES)[number]["id"]
@@ -181,8 +317,16 @@ export function wordmarkFor(style: StyleId) {
     case "cash":
     case "journal":
     case "swiss":
+    case "etch":
+    case "berkshire":
+    case "thermal":
+    case "riso":
       return "Holdco"
     case "signal":
+    case "gameboy":
+    case "flap":
+    case "chalk":
+    case "led":
       return "HOLDCO"
     case "bloomberg":
     case "windows":
