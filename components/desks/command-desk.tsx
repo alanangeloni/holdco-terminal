@@ -5,6 +5,7 @@ import { useState } from "react"
 import { Spark, TermArea, TermBars, TermHBar, TermLine, TermStacked, usePalette } from "@/components/charts/charts"
 import { Empty, PageHead, Panel } from "@/components/terminal/kit"
 import { Lattice } from "@/components/desks/shared"
+import { decisionStrip } from "@/lib/additions"
 import { deriveAlerts } from "@/lib/alerts"
 import { HEALTH_LABEL, openAsks } from "@/lib/capital"
 import { derivePnl, statementAt } from "@/lib/metrics"
@@ -46,6 +47,7 @@ export function CommandDesk() {
       <PageHead
         kicker={`Close ${monthLabel(book.asOf)} · uneliminated`}
         title="Command"
+        job="See what changed this close and where to act."
         lede="Consolidated picture across every company in the book. Subsidiary math rolls up at 100%."
         actions={<SpanToggle value={span} onChange={setSpan} />}
       />
@@ -56,6 +58,16 @@ export function CommandDesk() {
           <span>#1 {book.companies.find((company) => company.id === book.capital.priorityCompanyId)?.name ?? "None"}</span>
           <span>{openAsks(book.asks).length} open</span>
         </Link>
+        {(() => {
+          const decision = decisionStrip(book)
+          if (!decision) return null
+          return (
+            <Link href={decision.href} className="flex flex-wrap items-center justify-between gap-2 border border-amber/40 bg-card px-2.5 py-2 text-xs hover:text-amber">
+              <span>{decision.sentence}</span>
+              <span className="font-mono text-[10px] tracking-wider text-amber uppercase">{decision.action}</span>
+            </Link>
+          )
+        })()}
         <Lattice snap={snap} />
         <div className="grid gap-2 xl:grid-cols-2">
           <Panel title="Revenue and net income">

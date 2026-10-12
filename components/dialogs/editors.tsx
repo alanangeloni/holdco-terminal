@@ -445,6 +445,8 @@ const STATEMENT_FIELDS: { key: keyof MonthlyStatement; label: string; group: str
   ["otherOpex", "Other opex", "P&L"],
   ["interest", "Interest", "P&L"],
   ["tax", "Tax", "P&L"],
+  ["depreciation", "Depreciation", "Owner"],
+  ["maintenanceCapex", "Maintenance capex", "Owner"],
   ["budgetRevenue", "Budget revenue", "Budget"],
   ["budgetCogs", "Budget COGS", "Budget"],
   ["budgetPayroll", "Budget payroll", "Budget"],
@@ -1032,6 +1034,10 @@ export function WorkDialog({ open, onOpenChange, companyId, initial }: { open: b
   const [status, setStatus] = useState<WorkStatus>(initial?.status ?? "backlog")
   const [due, setDue] = useState(initial?.due ?? "")
   const [notes, setNotes] = useState(initial?.notes ?? "")
+  const [priority, setPriority] = useState(String(initial?.priority ?? 2))
+  const [doneNote, setDoneNote] = useState(initial?.doneNote ?? "")
+  const [nextNote, setNextNote] = useState(initial?.nextNote ?? "")
+  const [stuckNote, setStuckNote] = useState(initial?.stuckNote ?? "")
   if (!open) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1040,7 +1046,19 @@ export function WorkDialog({ open, onOpenChange, companyId, initial }: { open: b
         description="Who is on what. Assignees can be people or agents."
         onClose={() => onOpenChange(false)}
         onSubmit={() => {
-          const input = { title, companyId: company, assigneeId: assignee === "none" ? null : assignee, status, due: due || null, notes }
+          const input = {
+            title,
+            companyId: company,
+            assigneeId: assignee === "none" ? null : assignee,
+            status,
+            due: due || null,
+            notes,
+            priority: n(priority),
+            doneNote,
+            nextNote,
+            stuckNote,
+            dependsOnId: initial?.dependsOnId ?? null,
+          }
           if (initial) update(initial.id, input)
           else add(input)
           onOpenChange(false)
@@ -1055,13 +1073,17 @@ export function WorkDialog({ open, onOpenChange, companyId, initial }: { open: b
             <Choose value={assignee} onChange={setAssignee} options={[{ value: "none", label: "Unassigned" }, ...people.map((person) => ({ value: person.id, label: `${person.name} · ${person.kind}` }))]} />
           </Field>
           <Field label="Status">
-            <Choose value={status} onChange={(value) => setStatus(value as WorkStatus)} options={[{ value: "backlog", label: "Backlog" }, { value: "doing", label: "Doing" }, { value: "done", label: "Done" }]} />
+            <Choose value={status} onChange={(value) => setStatus(value as WorkStatus)} options={[{ value: "backlog", label: "Backlog" }, { value: "doing", label: "Doing" }, { value: "blocked", label: "Blocked" }, { value: "done", label: "Done" }]} />
           </Field>
           <Field label="Due">{textInput(due, setDue, { type: "date" })}</Field>
+          <Field label="Priority">{textInput(priority, setPriority, { type: "number" })}</Field>
         </div>
         <Field label="Notes">
           <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
         </Field>
+        <Field label="Done">{textInput(doneNote, setDoneNote)}</Field>
+        <Field label="Next">{textInput(nextNote, setNextNote)}</Field>
+        <Field label="Stuck">{textInput(stuckNote, setStuckNote)}</Field>
       </EditorFrame>
     </Dialog>
   )
@@ -1075,6 +1097,8 @@ export function WikiDialog({ open, onOpenChange, companyId, initial }: { open: b
   const [company, setCompany] = useState(initial?.companyId ?? companyId ?? companies[0]?.id ?? "")
   const [kind, setKind] = useState<WikiKind>(initial?.kind ?? "brief")
   const [body, setBody] = useState(initial?.body ?? "")
+  const [reversible, setReversible] = useState(initial?.reversible === false ? "no" : "yes")
+  const [reviewDate, setReviewDate] = useState(initial?.reviewDate ?? "")
   if (!open) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1083,7 +1107,7 @@ export function WikiDialog({ open, onOpenChange, companyId, initial }: { open: b
         description="Briefs, meetings, decisions, and SOPs. Markdown is stored as written."
         onClose={() => onOpenChange(false)}
         onSubmit={() => {
-          const input = { title, companyId: company, kind, body }
+          const input = { title, companyId: company, kind, body, reversible: kind === "decision" ? reversible === "yes" : undefined, reviewDate: kind === "decision" ? reviewDate : undefined }
           if (initial) update(initial.id, input)
           else add(input)
           onOpenChange(false)
@@ -1098,6 +1122,14 @@ export function WikiDialog({ open, onOpenChange, companyId, initial }: { open: b
             <Choose value={kind} onChange={(value) => setKind(value as WikiKind)} options={[{ value: "brief", label: "Brief" }, { value: "meeting", label: "Meeting" }, { value: "decision", label: "Decision" }, { value: "sop", label: "SOP" }]} />
           </Field>
         </div>
+        {kind === "decision" ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Reversible">
+              <Choose value={reversible} onChange={setReversible} options={[{ value: "yes", label: "Reversible" }, { value: "no", label: "One way" }]} />
+            </Field>
+            <Field label="Review date">{textInput(reviewDate, setReviewDate, { type: "date" })}</Field>
+          </div>
+        ) : null}
         <Field label="Body">
           <Textarea value={body} onChange={(event) => setBody(event.target.value)} className="min-h-40 font-mono text-xs" />
         </Field>
@@ -1111,6 +1143,11 @@ export function ProductDialog({ open, onOpenChange, companyId }: { open: boolean
   const asOf = usePortfolio((state) => state.asOf)
   const [name, setName] = useState("")
   const [revenue, setRevenue] = useState("0")
+  const [user, setUser] = useState("")
+  const [problem, setProblem] = useState("")
+  const [bet, setBet] = useState("")
+  const [killCriterion, setKillCriterion] = useState("")
+  const [retention, setRetention] = useState("0.8")
   if (!open) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1119,13 +1156,18 @@ export function ProductDialog({ open, onOpenChange, companyId }: { open: boolean
         description="Revenue for the as-of month. Add more months later by editing the line in the book."
         onClose={() => onOpenChange(false)}
         onSubmit={() => {
-          const line: Omit<ProductLine, "id"> = { companyId, name, monthly: [{ period: asOf, revenue: n(revenue) }] }
+          const line: Omit<ProductLine, "id"> = { companyId, name, monthly: [{ period: asOf, revenue: n(revenue) }], user, problem, bet, killCriterion, retention: n(retention) }
           add(line)
           onOpenChange(false)
         }}
       >
         <Field label="Name">{textInput(name, setName, { required: true })}</Field>
         <Field label={`Revenue in ${asOf}`}>{textInput(revenue, setRevenue, { type: "number" })}</Field>
+        <Field label="User">{textInput(user, setUser)}</Field>
+        <Field label="Problem">{textInput(problem, setProblem)}</Field>
+        <Field label="Bet">{textInput(bet, setBet)}</Field>
+        <Field label="Kill criterion">{textInput(killCriterion, setKillCriterion)}</Field>
+        <Field label="Retention (0-1)">{textInput(retention, setRetention, { type: "number" })}</Field>
       </EditorFrame>
     </Dialog>
   )
@@ -1142,6 +1184,7 @@ export function DealDialog({ open, onOpenChange, companyId }: { open: boolean; o
   const [amount, setAmount] = useState("0")
   const [expectedClose, setExpectedClose] = useState("2026-11-15")
   const [ownerId, setOwnerId] = useState(people[0]?.id ?? "none")
+  const [probability, setProbability] = useState("0.4")
   if (!open) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1150,7 +1193,7 @@ export function DealDialog({ open, onOpenChange, companyId }: { open: boolean; o
         description="Pipeline stages from lead through won or lost."
         onClose={() => onOpenChange(false)}
         onSubmit={() => {
-          add({ companyId: company, name, customerName, stage, amount: n(amount), expectedClose, ownerId: ownerId === "none" ? null : ownerId })
+          add({ companyId: company, name, customerName, stage, amount: n(amount), expectedClose, ownerId: ownerId === "none" ? null : ownerId, probability: n(probability) })
           onOpenChange(false)
         }}
       >
@@ -1168,6 +1211,7 @@ export function DealDialog({ open, onOpenChange, companyId }: { open: boolean; o
           <Field label="Owner">
             <Choose value={ownerId} onChange={setOwnerId} options={[{ value: "none", label: "Unassigned" }, ...people.map((person) => ({ value: person.id, label: person.name }))]} />
           </Field>
+          <Field label="Probability (0-1)">{textInput(probability, setProbability, { type: "number" })}</Field>
         </div>
       </EditorFrame>
     </Dialog>
@@ -1222,6 +1266,7 @@ export function KpiDialog({ open, onOpenChange, companyId }: { open: boolean; on
   const [target, setTarget] = useState("0")
   const [actual, setActual] = useState("0")
   const [direction, setDirection] = useState<"up" | "down">("up")
+  const [kind, setKind] = useState<"input" | "output">("output")
   if (!open) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1230,7 +1275,7 @@ export function KpiDialog({ open, onOpenChange, companyId }: { open: boolean; on
         description="Off-target KPIs show up as alerts."
         onClose={() => onOpenChange(false)}
         onSubmit={() => {
-          add({ companyId: company, name, unit, target: n(target), actual: n(actual), direction })
+          add({ companyId: company, name, unit, target: n(target), actual: n(actual), direction, kind })
           onOpenChange(false)
         }}
       >
@@ -1244,6 +1289,9 @@ export function KpiDialog({ open, onOpenChange, companyId }: { open: boolean; on
           <Field label="Actual">{textInput(actual, setActual, { type: "number" })}</Field>
           <Field label="Better when">
             <Choose value={direction} onChange={(value) => setDirection(value as "up" | "down")} options={[{ value: "up", label: "Higher" }, { value: "down", label: "Lower" }]} />
+          </Field>
+          <Field label="Kind">
+            <Choose value={kind} onChange={(value) => setKind(value as "input" | "output")} options={[{ value: "input", label: "Input" }, { value: "output", label: "Output" }]} />
           </Field>
         </div>
       </EditorFrame>

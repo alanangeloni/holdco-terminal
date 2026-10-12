@@ -36,11 +36,13 @@ export function Panel({
 export function PageHead({
   kicker,
   title,
+  job,
   lede,
   actions,
 }: {
   kicker: string
   title: string
+  job?: string
   lede?: string
   actions?: ReactNode
 }) {
@@ -49,6 +51,7 @@ export function PageHead({
       <div className="min-w-0">
         <div className="text-[10px] tracking-[0.18em] text-amber uppercase">{kicker}</div>
         <h1 className="truncate text-lg font-medium tracking-tight">{title}</h1>
+        {job ? <p className="max-w-3xl text-xs">{job}</p> : null}
         {lede ? <p className="max-w-3xl text-xs text-muted-foreground">{lede}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">{actions}</div>

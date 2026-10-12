@@ -113,6 +113,7 @@ export function StyleDesk() {
       <PageHead
         kicker="Look"
         title="Styles"
+        job="Choose the skin for this browser."
         lede="One skin for the whole book. It stays on this browser."
       />
       <div className="style-list flex max-w-3xl flex-col gap-3 p-3">

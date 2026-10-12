@@ -27,7 +27,7 @@ export function CorporateDesk({ companyId, embedded = false }: { companyId?: str
   const caps = book.capTable.filter((row) => ids.has(row.companyId))
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Record" title="Corporate" lede="Officers, cap table, filings, and the risk matrix." actions={<><Button size="sm" variant="outline" onClick={() => setEventOpen(true)}>Add date</Button><Button size="sm" onClick={() => setRiskOpen(true)}>Add risk</Button></>} />}
+      {embedded ? null : <PageHead kicker="Record" title="Corporate" job="See the filings, the cap table, and the risks." lede="Officers, cap table, filings, and the risk matrix." actions={<><Button size="sm" variant="outline" onClick={() => setEventOpen(true)}>Add date</Button><Button size="sm" onClick={() => setRiskOpen(true)}>Add risk</Button></>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? <div className="flex justify-end gap-2"><Button size="sm" variant="outline" onClick={() => setEventOpen(true)}>Add date</Button><Button size="sm" onClick={() => setRiskOpen(true)}>Add risk</Button></div> : null}
         <Panel title="Officers">
@@ -102,7 +102,7 @@ export function ScorecardDesk({ companyId, embedded = false }: { companyId?: str
   const objectives = book.objectives.filter((objective) => !companyId || objective.companyId === companyId)
   return (
     <div>
-      {embedded ? null : <PageHead kicker="Record" title="Scorecard" lede="Red means the KPI is off the side that matters." actions={<Button size="sm" onClick={() => setOpen(true)}>Add KPI</Button>} />}
+      {embedded ? null : <PageHead kicker="Record" title="Scorecard" job="See which inputs the team controls and which outputs follow." lede="Red means the KPI is off the side that matters." actions={<Button size="sm" onClick={() => setOpen(true)}>Add KPI</Button>} />}
       <div className={embedded ? "grid gap-2" : "grid gap-2 p-2 lg:p-3"}>
         {embedded ? <div className="flex justify-end"><Button size="sm" onClick={() => setOpen(true)}>Add KPI</Button></div> : null}
         <Panel title="KPIs" bodyClassName="p-0">
@@ -113,6 +113,7 @@ export function ScorecardDesk({ companyId, embedded = false }: { companyId?: str
             columns={[
               { key: "co", header: "Company", render: (row) => book.companies.find((company) => company.id === row.companyId)?.name ?? "—" },
               { key: "name", header: "KPI", render: (row) => row.name },
+              { key: "kind", header: "Kind", render: (row) => row.kind === "input" ? "Input" : "Output" },
               { key: "actual", header: "Actual", render: (row) => <span className={kpiMiss(row.direction, row.actual, row.target) ? "font-mono text-down" : "font-mono text-up"}>{row.actual} {row.unit}</span> },
               { key: "target", header: "Target", render: (row) => <span className="font-mono">{row.target} {row.unit}</span> },
               { key: "dir", header: "Better", render: (row) => row.direction === "up" ? "Higher" : "Lower" },
@@ -145,7 +146,7 @@ export function AlertsDesk() {
   const groups = [...new Set(alerts.map((alert) => alert.companyId))]
   return (
     <div>
-      <PageHead kicker={`As of ${monthLabel(book.asOf)}`} title="Alerts" lede="Derived from the close: runway, margin, revenue, receivables, filings, and KPIs." />
+      <PageHead kicker={`As of ${monthLabel(book.asOf)}`} title="Alerts" job="See what crossed a line this close." lede="Derived from the close: runway, margin, revenue, receivables, filings, KPIs, covenants, and loss limits." />
       <div className="grid gap-2 p-2 lg:p-3">
         {alerts.length === 0 ? <Panel title="Clear"><Empty>Nothing is firing on this close.</Empty></Panel> : null}
         {groups.map((companyId) => (
@@ -192,6 +193,7 @@ export function ReportsDesk() {
       <PageHead
         kicker="Record"
         title="Board pack"
+        job="Read the month, including the written memo."
         lede="One holdco, one month. Print this page for the pack."
         actions={
           <>
@@ -221,6 +223,20 @@ export function ReportsDesk() {
               <p className="text-xs text-muted-foreground">Uneliminated full consolidation of {companies.length} companies. {holdco.description}</p>
             </div>
             <Lattice snap={snap} />
+            <Panel title="Close memo">
+              {(() => {
+                const memo = book.memos.find((item) => item.period === month)
+                if (!memo) return <Empty>No memo for this month. Write one on the customer math desk.</Empty>
+                return (
+                  <div className="grid gap-2 text-xs">
+                    <p><span className="text-amber">Changed. </span>{memo.changed}</p>
+                    <p><span className="text-amber">Doing. </span>{memo.doing}</p>
+                    <p><span className="text-amber">Not doing. </span>{memo.notDoing}</p>
+                    <p className="text-muted-foreground">{memo.signedBy ? `Signed by ${memo.signedBy}` : "Unsigned"}</p>
+                  </div>
+                )
+              })()}
+            </Panel>
             <Panel title="P&L versus budget" bodyClassName="p-0">
               {pnl && budget ? (
                 <table className="w-full text-xs">
@@ -325,6 +341,7 @@ export function HoldcoDesk({ id }: { id: string }) {
       <PageHead
         kicker={`${holdco.jurisdiction} · ${holdco.entityType} · FYE ${holdco.fiscalYearEnd}`}
         title={holdco.name}
+        job="See the rollup, with owner earnings beside net income."
         lede={`${holdco.description} Rollup is uneliminated.`}
         actions={
           <>

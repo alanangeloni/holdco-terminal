@@ -1,3 +1,4 @@
+import { ownerEarnings, returnOnCapital } from "./additions"
 import { grainFor, projectRows, type MonthlyRow } from "./grain"
 import type { Book, Company, Span } from "./types"
 import { PLATFORMS } from "./types"
@@ -62,6 +63,8 @@ export interface Snapshot {
   headcount: number
   momRevenue: number | null
   momNetIncome: number | null
+  ownerEarnings: number
+  returnOnCapital: number | null
 }
 
 function pointFrom(statement: NonNullable<ReturnType<typeof consolidatedStatement>>, period: string): Point {
@@ -207,6 +210,8 @@ export function snapshotFor(book: Book, companies: Company[], mode: "full" | "we
   })(),
     momRevenue: pnl && priorPnl ? mom(pnl.revenue, priorPnl.revenue) : null,
     momNetIncome: pnl && priorPnl ? mom(pnl.netIncome, priorPnl.netIncome) : null,
+    ownerEarnings: current ? ownerEarnings(current) : 0,
+    returnOnCapital: current ? returnOnCapital(current) : null,
   }
 }
 

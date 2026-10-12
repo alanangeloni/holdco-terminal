@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Menu, Search } from "lucide-react"
@@ -87,6 +88,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const book = usePortfolio()
   const reset = usePortfolio((state) => state.reset)
   const setAsOf = usePortfolio((state) => state.setAsOf)
+  const replyActivity = usePortfolio((state) => state.replyActivity)
+  const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState("")
   const { style, mode } = useHoldcoStyle()
 
   useLayoutEffect(() => {
@@ -218,9 +222,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col gap-2 overflow-y-auto px-4 pb-6">
             {book.activity.length === 0 ? <p className="text-sm text-muted-foreground">Nothing recorded yet.</p> : null}
             {book.activity.map((event) => (
-              <div key={event.id} className="border-b border-border py-2">
+              <div key={event.id} className={`border-b border-border py-2 ${event.replyToId ? "pl-4" : ""}`}>
                 <div className="font-mono text-[10px] text-muted-foreground">{event.at.replace("T", " ").slice(0, 19)}</div>
+                {event.replyToId ? <div className="font-mono text-[10px] text-amber">Reply</div> : null}
                 <div className="text-sm">{event.message}</div>
+                <button type="button" className="mt-1 font-mono text-[10px] text-muted-foreground hover:text-amber" onClick={() => setReplyTo(event.id)}>Reply</button>
+                {replyTo === event.id ? (
+                  <form
+                    className="mt-1 flex gap-2"
+                    onSubmit={(submit) => {
+                      submit.preventDefault()
+                      if (!replyText.trim()) return
+                      replyActivity(event.id, replyText.trim())
+                      setReplyText("")
+                      setReplyTo(null)
+                    }}
+                  >
+                    <Input value={replyText} onChange={(change) => setReplyText(change.target.value)} className="h-8 font-mono text-xs" />
+                    <Button size="sm" type="submit">Send</Button>
+                  </form>
+                ) : null}
               </div>
             ))}
           </div>

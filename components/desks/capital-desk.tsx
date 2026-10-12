@@ -79,6 +79,7 @@ export function CapitalDesk() {
       <PageHead
         kicker={`#1 ${priority?.name ?? "None set"}`}
         title="Capital"
+        job="See which ask gets the next dollar."
         lede="Open asks, the latest call, and the log of kills and parks. Dry powder is cash you can deploy. It is separate from operating cash, and it can be zero."
         actions={<Button size="sm" onClick={() => { setEditing(null); setAskOpen(true) }}>New ask</Button>}
       />

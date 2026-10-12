@@ -9,6 +9,9 @@ export const NAV: { group: string; items: NavItem[] }[] = [
     group: "Picture",
     items: [
       { href: "/", code: "CMD", label: "Command" },
+      { href: "/owner", code: "OWN", label: "Owner's math" },
+      { href: "/demand", code: "DMD", label: "Customer's math" },
+      { href: "/week", code: "WK", label: "My week" },
       { href: "/capital", code: "CAP", label: "Capital" },
       { href: "/ideas", code: "ORI", label: "Origination" },
       { href: "/holdings", code: "HLD", label: "Holdings" },

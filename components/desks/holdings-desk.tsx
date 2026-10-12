@@ -96,6 +96,7 @@ export function HoldingsDesk() {
       <PageHead
         kicker="Structure"
         title="Holdings"
+        job="See who owns whom."
         lede="Holding companies, the subsidiaries under them, and companies that stand alone."
         actions={
           <>

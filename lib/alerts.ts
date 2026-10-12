@@ -1,3 +1,4 @@
+import { covenantBreach } from "./additions"
 import type { Book } from "./types"
 import {
   aging,
@@ -9,7 +10,7 @@ import {
   shiftPeriod,
 } from "./metrics"
 
-export type AlertKind = "runway" | "margin" | "revenue" | "ar" | "filing" | "kpi"
+export type AlertKind = "runway" | "margin" | "revenue" | "ar" | "filing" | "kpi" | "covenant" | "risk"
 export type AlertSeverity = "high" | "watch"
 
 export interface Alert {
@@ -110,6 +111,34 @@ export function deriveAlerts(book: Book, today: string): Alert[] {
         href: `/companies/${company.id}?tab=scorecard`,
       })
     }
+  }
+
+  for (const facility of book.debt) {
+    if (!covenantBreach(facility)) continue
+    alerts.push({
+      id: `covenant:${facility.id}`,
+      companyId: facility.companyId,
+      companyName: nameOf(facility.companyId),
+      severity: "high",
+      kind: "covenant",
+      title: `${facility.covenantName ?? "Covenant"} is under its floor`,
+      detail: `${nameOf(facility.companyId)} ${facility.lender} actual ${facility.covenantActual} is under ${facility.covenantLimit}.`,
+      href: "/owner",
+    })
+  }
+
+  for (const risk of book.risks) {
+    if (risk.status === "closed" || risk.loss === undefined || risk.limit === undefined || risk.loss <= risk.limit) continue
+    alerts.push({
+      id: `risk:${risk.id}`,
+      companyId: risk.companyId,
+      companyName: nameOf(risk.companyId),
+      severity: "watch",
+      kind: "risk",
+      title: `${risk.title} is over its loss limit`,
+      detail: `${nameOf(risk.companyId)} loss ${risk.loss} is over a limit of ${risk.limit}.`,
+      href: `/companies/${risk.companyId}?tab=corporate`,
+    })
   }
 
   for (const event of book.events) {
